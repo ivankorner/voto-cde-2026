@@ -982,6 +982,102 @@ class VotacionController extends Controller {
         }
     }
     
+    public function pantallaGrande($sesionId = null) {
+        // Vista pública optimizada para pantallas grandes (65+ pulgadas)
+        // Accesible sin autenticación
+        
+        try {
+            if (!$sesionId) {
+                // Si no se especifica sesión, mostrar la sesión activa más reciente
+                $votacionModel = $this->loadModel('Votacion');
+                $sesionActiva = $votacionModel->getSesionActivaActual();
+                if ($sesionActiva) {
+                    $sesionId = $sesionActiva['id'];
+                } else {
+                    // Usar datos por defecto si no hay sesión activa
+                    $sesionId = 0;
+                }
+            }
+            
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Obtener información de la sesión
+            if ($sesionId > 0) {
+                $sesion = $votacionModel->getSesionById($sesionId);
+                if (!$sesion) {
+                    $sesion = [
+                        'id' => 0,
+                        'nombre' => 'Sesión no encontrada',
+                        'numero_acta' => '-',
+                        'fecha_sesion' => date('Y-m-d'),
+                        'estado' => 'inactiva'
+                    ];
+                }
+            } else {
+                $sesion = [
+                    'id' => 0,
+                    'nombre' => 'No hay sesión activa',
+                    'numero_acta' => '-',
+                    'fecha_sesion' => date('Y-m-d'),
+                    'estado' => 'inactiva'
+                ];
+            }
+            
+            // Obtener datos de la sesión
+            $miembrosPresentes = [];
+            $puntosHabilitados = [];
+            
+            if ($sesion['id'] > 0) {
+                $miembrosPresentes = $votacionModel->getMiembrosPresentes($sesion['id']);
+                $puntosHabilitados = $votacionModel->getPuntosHabilitados($sesion['id']);
+                
+                // Enriquecer puntos con resultados
+                foreach ($puntosHabilitados as &$punto) {
+                    if (!empty($punto['item_tipo']) && $punto['item_tipo'] === 'expediente' && !empty($punto['item_id'])) {
+                        $resultados = $votacionModel->getResultadosItem($sesion['id'], 'expediente', $punto['item_id']);
+                        $punto['resultados'] = [
+                            'positivo' => 0,
+                            'negativo' => 0,
+                            'abstencion' => 0
+                        ];
+                        
+                        foreach ($resultados as $resultado) {
+                            $punto['resultados'][$resultado['tipo_voto']] = (int)$resultado['cantidad'];
+                        }
+                    }
+                }
+            }
+            
+            $data = [
+                'sesion' => $sesion,
+                'puntos_habilitados' => $puntosHabilitados,
+                'miembros_presentes' => $miembrosPresentes,
+                'page_title' => 'Pantalla Grande - ' . ($sesion['nombre'] ?? 'Sesión de Votación')
+            ];
+            
+            $this->loadView('votacion/pantalla_grande', $data);
+            
+        } catch (Exception $e) {
+            error_log("Error en pantallaGrande: " . $e->getMessage());
+            
+            // En caso de error, mostrar vista con datos por defecto
+            $data = [
+                'sesion' => [
+                    'id' => 0,
+                    'nombre' => 'Error de conexión',
+                    'numero_acta' => '-',
+                    'fecha_sesion' => date('Y-m-d'),
+                    'estado' => 'error'
+                ],
+                'puntos_habilitados' => [],
+                'miembros_presentes' => [],
+                'page_title' => 'Pantalla Grande - Error'
+            ];
+            
+            $this->loadView('votacion/pantalla_grande', $data);
+        }
+    }
+    
     public function pararMocion() {
         $this->requireLogin();
         

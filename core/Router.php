@@ -43,6 +43,7 @@ class Router {
             'votacion/crear' => ['controller' => 'VotacionController', 'method' => 'crear'],
             'votacion/votar' => ['controller' => 'VotacionController', 'method' => 'votar'],
             'votacion/historial' => ['controller' => 'VotacionController', 'method' => 'historial'],
+            'pantalla-grande' => ['controller' => 'VotacionController', 'method' => 'pantallaGrande'],
         ];
     }
     
@@ -253,9 +254,16 @@ class Router {
                 break;
                 
             case 'vista-publica':
-                // Ruta pública - NO requiere autenticación
                 if (method_exists($controller, 'vistaPublica')) {
                     $controller->vistaPublica($id);
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
+            case 'pantalla-grande':
+                if (method_exists($controller, 'pantallaGrande')) {
+                    $controller->pantallaGrande($id);
                 } else {
                     $this->callController('ErrorController', 'notFound');
                 }
