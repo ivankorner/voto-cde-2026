@@ -171,6 +171,31 @@ class Votacion extends Model {
             $this->db->exec($sql);
         }
     }
+
+    private function ensurePuntosHabilitadosTable() {
+        try {
+            $this->db->query("SELECT 1 FROM puntos_habilitados LIMIT 1");
+        } catch (Exception $e) {
+            // Crear tabla si no existe
+            $sql = "CREATE TABLE IF NOT EXISTS puntos_habilitados (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        sesion_id INT NOT NULL,
+                        item_tipo VARCHAR(50) NOT NULL,
+                        item_id INT NULL,
+                        numero_expediente VARCHAR(100) NULL,
+                        extracto TEXT NULL,
+                        orden_punto INT NOT NULL DEFAULT 0,
+                        habilitado TINYINT(1) NOT NULL DEFAULT 0,
+                        fecha_habilitacion TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_sesion (sesion_id),
+                        INDEX idx_habilitado (habilitado),
+                        INDEX idx_orden (orden_punto)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+            $this->db->exec($sql);
+        }
+    }
     
     // ============================================
     // GESTIÓN DE VOTOS
@@ -500,6 +525,9 @@ class Votacion extends Model {
     // ============================================
     
     public function inicializarPuntosSesion($sesionId) {
+        // Asegurar que la tabla existe
+        $this->ensurePuntosHabilitadosTable();
+        
         // Obtener todos los expedientes del orden del día de la sesión
         $query = "SELECT sv.id as sesion_id
                   FROM sesiones_votacion sv
@@ -557,6 +585,8 @@ class Votacion extends Model {
     }
     
     public function habilitarPunto($sesionId, $puntoId, $userId) {
+        $this->ensurePuntosHabilitadosTable();
+        
         $query = "UPDATE puntos_habilitados 
                   SET habilitado = TRUE, 
                       fecha_habilitacion = NOW(), 
@@ -568,6 +598,8 @@ class Votacion extends Model {
     }
     
     public function deshabilitarPunto($sesionId, $puntoId) {
+        $this->ensurePuntosHabilitadosTable();
+        
         $query = "UPDATE puntos_habilitados 
                   SET habilitado = FALSE, 
                       fecha_habilitacion = NULL, 
@@ -660,6 +692,9 @@ class Votacion extends Model {
     }
 
     public function getPuntosHabilitados($sesionId) {
+        // Asegurar que la tabla existe
+        $this->ensurePuntosHabilitadosTable();
+        
         // Retorna los puntos habilitados mapeados para la vista pública
         $query = "SELECT id, item_tipo, item_id, numero_expediente, extracto, orden_punto, habilitado, fecha_habilitacion
                   FROM puntos_habilitados
