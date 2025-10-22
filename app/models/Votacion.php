@@ -852,6 +852,7 @@ class Votacion extends Model {
         $this->ensureMocionesTable();
         
         try {
+            // Solo obtener mociones activas para notificaciones automáticas
             $query = "SELECT m.*, 
                       CASE 
                           WHEN m.tipo = 'orden' THEN 'Moción de orden'
@@ -880,6 +881,7 @@ class Votacion extends Model {
         $this->ensureMocionesTable();
         
         try {
+            // Para el historial, mostrar todas las mociones (activas e inactivas)
             $query = "SELECT m.*, 
                       CASE 
                           WHEN m.tipo = 'orden' THEN 'Moción de orden'
@@ -889,7 +891,7 @@ class Votacion extends Model {
                           ELSE 'Otra moción'
                       END as tipo_texto
                       FROM mociones m 
-                      WHERE m.sesion_id = ? AND m.activa = 1
+                      WHERE m.sesion_id = ?
                       ORDER BY m.fecha_creacion DESC";
             
             $stmt = $this->db->prepare($query);

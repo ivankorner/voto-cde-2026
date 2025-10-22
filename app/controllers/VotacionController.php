@@ -981,5 +981,50 @@ class VotacionController extends Controller {
             $this->sendJSON(['success' => false, 'error' => 'Error al obtener mociones']);
         }
     }
+    
+    public function pararMocion() {
+        $this->requireLogin();
+        
+        try {
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            $mocionId = $input['mocion_id'] ?? null;
+            $sesionId = $input['sesion_id'] ?? null;
+            
+            if (!$mocionId || !$sesionId) {
+                $this->sendJSON(['success' => false, 'error' => 'Datos incompletos']);
+                return;
+            }
+            
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Verificar que la moción existe y pertenece a la sesión
+            $mocion = $votacionModel->getMocionById($mocionId);
+            if (!$mocion || $mocion['sesion_id'] != $sesionId) {
+                $this->sendJSON(['success' => false, 'error' => 'Moción no encontrada']);
+                return;
+            }
+            
+            // Desactivar la moción
+            $resultado = $votacionModel->desactivarMocion($mocionId);
+            
+            if ($resultado) {
+                // Log de la acción
+                error_log("Moción #{$mocionId} desactivada por usuario {$_SESSION['user_name']} (ID: {$_SESSION['user_id']})");
+                
+                $this->sendJSON([
+                    'success' => true, 
+                    'message' => 'Moción desactivada exitosamente',
+                    'mocion_id' => $mocionId
+                ]);
+            } else {
+                $this->sendJSON(['success' => false, 'error' => 'Error al desactivar la moción']);
+            }
+            
+        } catch (Exception $e) {
+            error_log("Error en pararMocion: " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'error' => 'Error interno del servidor']);
+        }
+    }
 }
 ?>

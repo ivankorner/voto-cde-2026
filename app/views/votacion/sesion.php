@@ -210,6 +210,10 @@ ob_start();
                 <p class="text-muted mb-3 small">
                     <i class="bi bi-info-circle"></i>
                     Revise las mociones y comunicaciones realizadas durante la sesión.
+                    <br><small class="text-warning">
+                        <i class="bi bi-stop-circle"></i>
+                        Puede detener alertas de mociones usando el botón "Parar" en el historial.
+                    </small>
                 </p>
                 <button class="btn btn-outline-info btn-sm w-100" onclick="abrirPanelMociones()">
                     <i class="bi bi-list-ul"></i>
@@ -1240,13 +1244,17 @@ function mostrarListaMociones(mociones) {
                             </small>
                         </div>
                         <div class="d-flex gap-2">
-                            <span class="badge bg-success">Activa</span>
-                            <button class="btn btn-sm btn-outline-danger" 
-                                    onclick="pararMocion(${mocion.id}, '${mocion.tipo_texto}')"
-                                    title="Detener alertas de esta moción">
-                                <i class="bi bi-stop-circle"></i>
-                                Parar
-                            </button>
+                            ${mocion.activa == 1 ? 
+                                `<span class="badge bg-success">Activa</span>
+                                 <button class="btn btn-sm btn-outline-danger" 
+                                        onclick="pararMocion(${mocion.id}, '${mocion.tipo_texto}')"
+                                        title="Detener alertas de esta moción">
+                                    <i class="bi bi-stop-circle"></i>
+                                    Parar
+                                 </button>` : 
+                                `<span class="badge bg-secondary">Detenida</span>
+                                 <small class="text-muted">No se notifica</small>`
+                            }
                         </div>
                     </div>
                 </div>
@@ -1267,6 +1275,109 @@ function getBadgeColorForTipo(tipo) {
     };
     
     return colores[tipo] || 'bg-secondary';
+}
+
+function pararMocion(mocionId, tipoMocion) {
+    Swal.fire({
+        title: '¿Detener esta moción?',
+        html: `
+            <div class="text-start">
+                <p>¿Está seguro que desea detener las alertas de esta moción?</p>
+                <div class="alert alert-warning">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Tipo:</strong> ${tipoMocion}<br>
+                    <strong>Efecto:</strong> Esta moción dejará de aparecer como alerta automática para todos los usuarios.
+                </div>
+                <p class="text-muted small">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    La moción seguirá visible en el historial pero no se notificará más.
+                </p>
+            </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="bi bi-stop-circle"></i> Sí, Detener',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            ejecutarPararMocion(mocionId);
+        }
+    });
+}
+
+function ejecutarPararMocion(mocionId) {
+    // Mostrar loading en el botón
+    const btnParar = document.querySelector(`button[onclick*="${mocionId}"]`);
+    if (btnParar) {
+        btnParar.disabled = true;
+        btnParar.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Deteniendo...';
+    }
+    
+    fetch(BASE_URL + 'votacion/parar-mocion', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            mocion_id: mocionId,
+            sesion_id: window.sesionId || <?= $sesion['id'] ?>
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Mostrar confirmación
+            Swal.fire({
+                title: '¡Moción Detenida!',
+                text: 'La moción ha sido desactivada. Ya no aparecerá como alerta automática.',
+                icon: 'success',
+                confirmButtonText: 'Aceptar',
+                confirmButtonColor: '#28a745',
+                timer: 3000,
+                position: 'top-end',
+                toast: true,
+                showConfirmButton: false
+            });
+            
+            // Actualizar el panel para reflejar el cambio
+            actualizarPanelMociones();
+            
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: 'Error al detener la moción: ' + (data.error || 'Error desconocido'),
+                icon: 'error',
+                confirmButtonText: 'Aceptar',
+                confirmButtonColor: '#dc3545'
+            });
+            
+            // Restaurar botón
+            if (btnParar) {
+                btnParar.disabled = false;
+                btnParar.innerHTML = '<i class="bi bi-stop-circle"></i> Parar';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            title: 'Error de Conexión',
+            text: 'No se pudo conectar con el servidor. Intente nuevamente.',
+            icon: 'error',
+            confirmButtonText: 'Aceptar',
+            confirmButtonColor: '#dc3545'
+        });
+        
+        // Restaurar botón
+        if (btnParar) {
+            btnParar.disabled = false;
+            btnParar.innerHTML = '<i class="bi bi-stop-circle"></i> Parar';
+        }
+    });
 }
 
 // Iniciar verificación de mociones al cargar la página (para todos los usuarios)

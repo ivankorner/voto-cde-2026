@@ -451,6 +451,31 @@ main {
     padding: 0.35em 0.65em;
 }
 
+/* Mociones detenidas */
+#modalPanelMociones .card .badge.bg-secondary {
+    opacity: 0.7;
+}
+
+#modalPanelMociones .card:has(.badge.bg-secondary) {
+    opacity: 0.8;
+    border-color: #6c757d !important;
+}
+
+#modalPanelMociones .card:has(.badge.bg-secondary) .card-body {
+    background-color: #f8f9fa;
+}
+
+/* Botón parar moción */
+.btn-outline-danger.btn-sm {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.btn-outline-danger.btn-sm:hover {
+    transform: scale(1.05);
+}
+
 /* Loading en panel de mociones */
 #loading-mociones {
     min-height: 200px;

@@ -228,6 +228,14 @@ class Router {
                 }
                 break;
                 
+            case 'parar-mocion':
+                if (method_exists($controller, 'pararMocion')) {
+                    $controller->pararMocion();
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
             case 'inicializar-puntos':
                 if ($id && method_exists($controller, 'inicializarPuntos')) {
                     $controller->inicializarPuntos($id);
