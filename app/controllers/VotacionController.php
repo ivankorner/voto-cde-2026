@@ -200,37 +200,44 @@ class VotacionController extends Controller {
     // ============================================
     
     public function marcarPresencia($sesionId) {
-        $this->requireLogin();
-        
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->sendJSON(['success' => false, 'message' => 'Método no permitido']);
-        }
-        
-        $votacionModel = $this->loadModel('Votacion');
-        
-        // Solo editores pueden marcar presencia para votar
-        if (!$votacionModel->puedeVotar($_SESSION['user_id'])) {
-            $this->sendJSON(['success' => false, 'message' => 'Solo los editores pueden marcar presencia para votar']);
-        }
-        
-        $presente = isset($_POST['presente']) ? (bool)$_POST['presente'] : true;
-        
-        if ($presente) {
-            $success = $votacionModel->registrarPresencia($sesionId, $_SESSION['user_id'], true);
-        } else {
-            $success = $votacionModel->marcarSalida($sesionId, $_SESSION['user_id']);
-        }
-        
-        if ($success) {
-            $presentes = $votacionModel->getPresentesSesion($sesionId);
-            $this->sendJSON([
-                'success' => true, 
-                'message' => $presente ? 'Presencia registrada' : 'Salida registrada',
-                'presentes' => $presentes,
-                'total_presentes' => count($presentes)
-            ]);
-        } else {
-            $this->sendJSON(['success' => false, 'message' => 'Error al registrar presencia']);
+        try {
+            $this->requireLogin();
+            
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                $this->sendJSON(['success' => false, 'message' => 'Método no permitido']);
+                return;
+            }
+            
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Solo editores pueden marcar presencia para votar
+            if (!$votacionModel->puedeVotar($_SESSION['user_id'])) {
+                $this->sendJSON(['success' => false, 'message' => 'Solo los editores pueden marcar presencia para votar']);
+                return;
+            }
+            
+            $presente = isset($_POST['presente']) ? (bool)$_POST['presente'] : true;
+            
+            if ($presente) {
+                $success = $votacionModel->registrarPresencia($sesionId, $_SESSION['user_id'], true);
+            } else {
+                $success = $votacionModel->marcarSalida($sesionId, $_SESSION['user_id']);
+            }
+            
+            if ($success) {
+                $presentes = $votacionModel->getPresentesSesion($sesionId);
+                $this->sendJSON([
+                    'success' => true, 
+                    'message' => $presente ? 'Presencia registrada' : 'Salida registrada',
+                    'presentes' => $presentes,
+                    'total_presentes' => count($presentes)
+                ]);
+            } else {
+                $this->sendJSON(['success' => false, 'message' => 'Error al registrar presencia']);
+            }
+        } catch (Exception $e) {
+            error_log("Error en marcarPresencia(): " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'message' => 'Error interno del servidor']);
         }
     }
     
@@ -239,19 +246,27 @@ class VotacionController extends Controller {
     // ============================================
     
     public function votar() {
-        $this->requireLogin();
-        
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->sendJSON(['success' => false, 'message' => 'Método no permitido']);
-        }
-        
-        $this->validateCSRF();
-        
-        $votacionModel = $this->loadModel('Votacion');
-        
-        // Verificar permisos
-        if (!$votacionModel->puedeVotar($_SESSION['user_id'])) {
-            $this->sendJSON(['success' => false, 'message' => 'Solo los editores pueden votar']);
+        try {
+            $this->requireLogin();
+            
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                $this->sendJSON(['success' => false, 'message' => 'Método no permitido']);
+                return;
+            }
+            
+            $this->validateCSRF();
+            
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Verificar permisos
+            if (!$votacionModel->puedeVotar($_SESSION['user_id'])) {
+                $this->sendJSON(['success' => false, 'message' => 'Solo los editores pueden votar']);
+                return;
+            }
+        } catch (Exception $e) {
+            error_log("Error en votar() - Verificaciones iniciales: " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'message' => 'Error interno del servidor']);
+            return;
         }
         
         // Validaciones
@@ -293,36 +308,42 @@ class VotacionController extends Controller {
             $this->sendJSON(['success' => false, 'message' => 'Debe marcar presencia antes de votar']);
         }
         
-        $data = [
-            'sesion_id' => $_POST['sesion_id'],
-            'user_id' => $_SESSION['user_id'],
-            'item_votacion_tipo' => $_POST['item_tipo'],
-            'item_votacion_id' => $_POST['item_id'] ?? null,
-            'numero_expediente' => $_POST['numero_expediente'] ?? '',
-            'extracto_expediente' => $_POST['extracto_expediente'] ?? '',
-            'tipo_voto' => $_POST['tipo_voto'],
-            'observaciones' => $_POST['observaciones'] ?? '',
-            'ip_address' => $_SERVER['REMOTE_ADDR']
-        ];
-        
-        $votoId = $votacionModel->registrarVoto($data);
-        
-        if ($votoId) {
-            // Obtener resultados actualizados
-            $resultados = $votacionModel->getResultadosItem(
-                $_POST['sesion_id'], 
-                $_POST['item_tipo'], 
-                $_POST['item_id'] ?? null
-            );
+        try {
+            $data = [
+                'sesion_id' => $_POST['sesion_id'],
+                'user_id' => $_SESSION['user_id'],
+                'item_votacion_tipo' => $_POST['item_tipo'],
+                'item_votacion_id' => $_POST['item_id'] ?? null,
+                'numero_expediente' => $_POST['numero_expediente'] ?? '',
+                'extracto_expediente' => $_POST['extracto_expediente'] ?? '',
+                'tipo_voto' => $_POST['tipo_voto'],
+                'observaciones' => $_POST['observaciones'] ?? '',
+                'ip_address' => $_SERVER['REMOTE_ADDR']
+            ];
             
-            $this->sendJSON([
-                'success' => true, 
-                'message' => 'Voto registrado exitosamente',
-                'resultados' => $resultados,
-                'voto_id' => $votoId
-            ]);
-        } else {
-            $this->sendJSON(['success' => false, 'message' => 'Ya ha votado este ítem o error al registrar voto']);
+            $votoId = $votacionModel->registrarVoto($data);
+            
+            if ($votoId) {
+                // Obtener resultados actualizados
+                $resultados = $votacionModel->getResultadosItem(
+                    $_POST['sesion_id'], 
+                    $_POST['item_tipo'], 
+                    $_POST['item_id'] ?? null
+                );
+                
+                $this->sendJSON([
+                    'success' => true, 
+                    'message' => 'Voto registrado exitosamente',
+                    'resultados' => $resultados,
+                    'voto_id' => $votoId
+                ]);
+            } else {
+                $this->sendJSON(['success' => false, 'message' => 'Ya ha votado este ítem o error al registrar voto']);
+            }
+        } catch (Exception $e) {
+            error_log("Error en votar() - Registro de voto: " . $e->getMessage());
+            error_log("Datos del POST: " . print_r($_POST, true));
+            $this->sendJSON(['success' => false, 'message' => 'Error al procesar el voto. Intente nuevamente.']);
         }
     }
     
@@ -700,13 +721,28 @@ class VotacionController extends Controller {
     // ============================================
     
     private function sendJSON($data) {
-        header('Content-Type: application/json');
-        echo json_encode($data);
+        // Versión optimizada y compatible para servidor compartido
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-cache, must-revalidate');
+            header('Pragma: no-cache');
+        }
+        
+        $json = json_encode($data);
+        if ($json === false) {
+            $json = json_encode(['success' => false, 'message' => 'Error interno del servidor']);
+        }
+        
+        echo $json;
         exit;
     }
     
     private function validateCSRF() {
-        if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token'])) {
+            $this->sendJSON(['success' => false, 'message' => 'Token CSRF requerido']);
+        }
+        
+        if (!hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
             $this->sendJSON(['success' => false, 'message' => 'Token CSRF inválido']);
         }
     }

@@ -10,6 +10,7 @@ class Database {
     
     private function __construct() {
         try {
+            // Configuración básica para servidor compartido
             $this->connection = new PDO(
                 "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8",
                 DB_USER,

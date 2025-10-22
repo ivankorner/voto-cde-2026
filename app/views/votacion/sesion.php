@@ -478,29 +478,55 @@ function marcarPresencia() {
     btn.disabled = true;
     btn.innerHTML = '<i class="bi bi-clock"></i> Registrando...';
     
-    fetch(BASE_URL + 'votacion/marcarPresencia/' + SESION_ID, {
+        fetch(BASE_URL + 'votacion/marcarPresencia/' + SESION_ID, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
         },
-        body: 'presente=1&csrf_token=' + CSRF_TOKEN
+        body: 'csrf_token=' + CSRF_TOKEN
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Respuesta no válida del servidor');
+        }
+        
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            btn.innerHTML = '<i class="bi bi-check-circle"></i> Presente';
-            btn.className = 'btn btn-success btn-sm w-100';
-            document.getElementById('total-presentes').innerHTML = '<i class="bi bi-people"></i> ' + data.total_presentes;
-            actualizarHemiciclo(data.presentes);
+            SweetAlerts.success('¡Presencia registrada!', 'Ahora puede participar en las votaciones');
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-secondary');
+            btn.innerHTML = '<i class="bi bi-person-check-fill"></i> Presente';
+            btn.disabled = true;
+            
+            // Actualizar contador de presentes
+            document.getElementById('total-presentes').innerHTML = `<i class="bi bi-people"></i> ${data.total_presentes}`;
         } else {
-            alert('Error: ' + data.message);
+            SweetAlerts.error('Error', data.message || 'Error desconocido');
             btn.disabled = false;
             btn.innerHTML = originalText;
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error de conexión');
+        
+        let errorMessage = 'No se pudo conectar con el servidor';
+        if (error.message.includes('HTTP')) {
+            errorMessage = 'Error del servidor: ' + error.message;
+        } else if (error.message.includes('JSON')) {
+            errorMessage = 'Error de formato en la respuesta del servidor';
+        } else if (error.message.includes('Failed to fetch')) {
+            errorMessage = 'Problema de conectividad. Intente nuevamente.';
+        }
+        
+        SweetAlerts.error('Error de conexión', errorMessage);
         btn.disabled = false;
         btn.innerHTML = originalText;
     });
@@ -528,21 +554,49 @@ function votar(tipoItem, itemId, tipoVoto, numeroExpediente = '', extracto = '')
         
         fetch(BASE_URL + 'votacion/votar', {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         })
-        .then(response => response.json())
+        .then(response => {
+            // Verificar si la respuesta es exitosa
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            // Verificar el content-type
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Respuesta no válida del servidor');
+            }
+            
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 SweetAlerts.success('¡Voto registrado!', 'Su voto ha sido registrado exitosamente');
                 // Recargar la página para mostrar estado actualizado
                 location.reload();
             } else {
-                SweetAlerts.error('Error al votar', data.message);
+                SweetAlerts.error('Error al votar', data.message || 'Error desconocido');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            SweetAlerts.error('Error de conexión', 'No se pudo conectar con el servidor');
+            
+            let errorMessage = 'No se pudo conectar con el servidor';
+            if (error.message.includes('HTTP')) {
+                errorMessage = 'Error del servidor: ' + error.message;
+            } else if (error.message.includes('JSON')) {
+                errorMessage = 'Error de formato en la respuesta del servidor';
+            } else if (error.message.includes('Respuesta no válida')) {
+                errorMessage = 'El servidor no respondió correctamente';
+            } else if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'Problema de conectividad. Intente nuevamente.';
+            }
+            
+            SweetAlerts.error('Error de conexión', errorMessage);
         });
     });
 }
