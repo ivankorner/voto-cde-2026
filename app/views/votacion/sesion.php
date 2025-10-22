@@ -183,6 +183,13 @@ ob_start();
                     </small>
                 </div>
                 <?php endif; ?>
+                <!-- Botón de Moción para Editores -->
+                <div class="mt-3">
+                    <button class="btn btn-warning btn-sm w-100" id="btnMocion" onclick="abrirModalMocion()">
+                        <i class="bi bi-megaphone"></i>
+                        Solicitar Moción
+                    </button>
+                </div>
             </div>
         </div>
         <?php endif; ?>
@@ -678,6 +685,83 @@ function actualizarResultados() {
 }
 </style>
 
+<!-- Área de Notificaciones de Mociones (visible para todos) -->
+<div id="area-mociones" class="position-fixed" style="top: 20px; left: 20px; right: 20px; z-index: 10000; display: none;">
+    <div class="alert alert-warning alert-dismissible fade show shadow-lg border-0" id="notificacion-mocion">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-megaphone fa-2x me-3"></i>
+            <div class="flex-grow-1">
+                <h5 class="mb-1">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    MOCIÓN SOLICITADA
+                </h5>
+                <p class="mb-1" id="texto-mocion">Texto de la moción...</p>
+                <small class="text-muted">
+                    <i class="bi bi-person"></i>
+                    Solicitada por: <span id="autor-mocion">Editor</span> - 
+                    <span id="hora-mocion">00:00:00</span>
+                </small>
+            </div>
+        </div>
+        <button type="button" class="btn-close" onclick="cerrarMocion()"></button>
+    </div>
+</div>
+
+<!-- Modal para solicitar moción (solo editores) -->
+<?php if ($_SESSION['user_role'] === 'editor'): ?>
+<div class="modal fade" id="modalMocion" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="bi bi-megaphone"></i>
+                    Solicitar Moción
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>¿Qué es una moción?</strong><br>
+                    Una moción permite llamar la atención de todos los participantes sin interrumpir la votación en curso.
+                </div>
+                
+                <div class="mb-3">
+                    <label for="tipoMocion" class="form-label">Tipo de moción:</label>
+                    <select class="form-select" id="tipoMocion">
+                        <option value="orden">Moción de orden</option>
+                        <option value="aclaracion">Solicitud de aclaración</option>
+                        <option value="reconsideracion">Moción de reconsideración</option>
+                        <option value="cuestion_previa">Cuestión previa</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="textoMocion" class="form-label">Descripción de la moción:</label>
+                    <textarea class="form-control" id="textoMocion" rows="3" 
+                              placeholder="Describa brevemente el motivo de su moción..."
+                              maxlength="200"></textarea>
+                    <div class="form-text">Máximo 200 caracteres</div>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Importante:</strong> La moción será visible para todos los usuarios conectados.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="enviarMocion()">
+                    <i class="bi bi-megaphone"></i>
+                    Enviar Moción
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- JavaScript para actualización automática (solo para editores) -->
 <?php if ($_SESSION['user_role'] === 'editor'): ?>
 <script>
@@ -754,6 +838,7 @@ function crearToastContainer() {
 // Iniciar verificación automática al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
     iniciarVerificacionAutomatica();
+    iniciarVerificacionMociones();
 });
 
 // Limpiar interval al salir de la página
@@ -761,9 +846,187 @@ window.addEventListener('beforeunload', function() {
     if (autoCheckInterval) {
         clearInterval(autoCheckInterval);
     }
+    if (mocionCheckInterval) {
+        clearInterval(mocionCheckInterval);
+    }
 });
+
+// === SISTEMA DE MOCIONES ===
+
+function abrirModalMocion() {
+    const modal = new bootstrap.Modal(document.getElementById('modalMocion'));
+    modal.show();
+    
+    // Limpiar campos
+    document.getElementById('tipoMocion').value = 'orden';
+    document.getElementById('textoMocion').value = '';
+}
+
+function enviarMocion() {
+    const tipo = document.getElementById('tipoMocion').value;
+    const texto = document.getElementById('textoMocion').value.trim();
+    
+    if (!texto) {
+        alert('Por favor, describa su moción');
+        return;
+    }
+    
+    // Deshabilitar botón mientras se envía
+    const btnEnviar = event.target;
+    btnEnviar.disabled = true;
+    btnEnviar.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Enviando...';
+    
+    const data = {
+        sesion_id: sesionId,
+        tipo: tipo,
+        texto: texto
+    };
+    
+    fetch(BASE_URL + 'votacion/enviar-mocion', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Cerrar modal
+            bootstrap.Modal.getInstance(document.getElementById('modalMocion')).hide();
+            
+            // Mostrar confirmación
+            mostrarToast('Moción enviada exitosamente', 'success');
+            
+            // Mostrar la moción inmediatamente
+            mostrarMocion(data.mocion);
+            
+        } else {
+            alert('Error al enviar la moción: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error de conexión al enviar la moción');
+    })
+    .finally(() => {
+        // Rehabilitar botón
+        btnEnviar.disabled = false;
+        btnEnviar.innerHTML = '<i class="bi bi-megaphone"></i> Enviar Moción';
+    });
+}
+
 </script>
 <?php endif; ?>
+
+<!-- JavaScript para verificación de mociones (para todos los usuarios) -->
+<script>
+let mocionCheckInterval;
+let ultimaMocionId = 0;
+
+function iniciarVerificacionMociones() {
+    // Verificar mociones cada 3 segundos
+    mocionCheckInterval = setInterval(verificarNuevasMociones, 3000);
+}
+
+function verificarNuevasMociones() {
+    fetch(BASE_URL + `votacion/verificar-mociones/${sesionId}?desde=${ultimaMocionId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.mociones && data.mociones.length > 0) {
+                // Mostrar la moción más reciente
+                const mocion = data.mociones[data.mociones.length - 1];
+                mostrarMocion(mocion);
+                ultimaMocionId = Math.max(ultimaMocionId, mocion.id);
+            }
+        })
+        .catch(error => {
+            console.error('Error al verificar mociones:', error);
+        });
+}
+
+function mostrarMocion(mocion) {
+    const areaMociones = document.getElementById('area-mociones');
+    const textoMocion = document.getElementById('texto-mocion');
+    const autorMocion = document.getElementById('autor-mocion');
+    const horaMocion = document.getElementById('hora-mocion');
+    
+    // Actualizar contenido
+    textoMocion.textContent = `${mocion.tipo_texto}: ${mocion.texto}`;
+    autorMocion.textContent = mocion.autor_nombre;
+    horaMocion.textContent = new Date(mocion.fecha_creacion).toLocaleTimeString();
+    
+    // Mostrar notificación
+    areaMociones.style.display = 'block';
+    
+    // Reproducir sonido de notificación (opcional)
+    try {
+        // Crear un beep simple con Web Audio API
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {
+        // Silenciar errores de audio
+    }
+    
+    // Auto-ocultar después de 15 segundos
+    setTimeout(() => {
+        cerrarMocion();
+    }, 15000);
+}
+
+function cerrarMocion() {
+    const areaMociones = document.getElementById('area-mociones');
+    areaMociones.style.display = 'none';
+}
+
+function mostrarToast(mensaje, tipo = 'info') {
+    const toastContainer = document.getElementById('toast-container') || crearToastContainer();
+    
+    const colorClass = tipo === 'success' ? 'bg-success' : 
+                      tipo === 'error' ? 'bg-danger' : 
+                      tipo === 'warning' ? 'bg-warning text-dark' : 'bg-info';
+    
+    const toast = document.createElement('div');
+    toast.className = `toast show align-items-center text-white ${colorClass} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${mensaje}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 5000);
+}
+
+// Iniciar verificación de mociones al cargar la página (para todos los usuarios)
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof sesionId === 'undefined') {
+        window.sesionId = <?= $sesion['id'] ?>;
+    }
+    iniciarVerificacionMociones();
+});
+</script>
 
 <?php 
 $content = ob_get_clean();

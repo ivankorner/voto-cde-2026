@@ -888,5 +888,78 @@ class VotacionController extends Controller {
             'timestamp' => date('Y-m-d H:i:s')
         ]);
     }
+
+    // ============================================
+    // SISTEMA DE MOCIONES
+    // ============================================
+    
+    public function enviarMocion() {
+        $this->requireLogin();
+        
+        try {
+            // Solo editores y admins pueden enviar mociones
+            if ($_SESSION['user_role'] !== 'editor' && $_SESSION['user_role'] !== 'admin') {
+                $this->sendJSON(['success' => false, 'error' => 'Permisos insuficientes']);
+                return;
+            }
+            
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            $sesionId = $input['sesion_id'] ?? null;
+            $tipo = $input['tipo'] ?? '';
+            $texto = trim($input['texto'] ?? '');
+            
+            if (!$sesionId || !$tipo || !$texto) {
+                $this->sendJSON(['success' => false, 'error' => 'Datos incompletos']);
+                return;
+            }
+            
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Crear la moción
+            $mocionId = $votacionModel->crearMocion([
+                'sesion_id' => $sesionId,
+                'usuario_id' => $_SESSION['user_id'],
+                'tipo' => $tipo,
+                'texto' => $texto,
+                'autor_nombre' => $_SESSION['user_name']
+            ]);
+            
+            if ($mocionId) {
+                // Obtener la moción creada
+                $mocion = $votacionModel->getMocionById($mocionId);
+                
+                $this->sendJSON([
+                    'success' => true, 
+                    'message' => 'Moción enviada exitosamente',
+                    'mocion' => $mocion
+                ]);
+            } else {
+                $this->sendJSON(['success' => false, 'error' => 'Error al crear la moción']);
+            }
+            
+        } catch (Exception $e) {
+            error_log("Error en enviarMocion: " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'error' => 'Error interno del servidor']);
+        }
+    }
+    
+    public function verificarMociones($sesionId, $desde = 0) {
+        try {
+            $votacionModel = $this->loadModel('Votacion');
+            
+            $mociones = $votacionModel->getMocionesRecientes($sesionId, $desde);
+            
+            $this->sendJSON([
+                'success' => true,
+                'mociones' => $mociones,
+                'timestamp' => date('Y-m-d H:i:s')
+            ]);
+            
+        } catch (Exception $e) {
+            error_log("Error en verificarMociones: " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'error' => 'Error al verificar mociones']);
+        }
+    }
 }
 ?>

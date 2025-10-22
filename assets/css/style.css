@@ -283,3 +283,129 @@ main {
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* === ESTILOS PARA SISTEMA DE MOCIONES === */
+
+/* Área de notificaciones de mociones */
+#area-mociones {
+    animation: slideInDown 0.4s ease-out;
+}
+
+#area-mociones .alert {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    border: 2px solid #f39c12;
+    border-left: 5px solid #e67e22;
+    box-shadow: 0 8px 32px rgba(243, 156, 18, 0.3);
+}
+
+#area-mociones .alert h5 {
+    color: #d68910;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+#area-mociones .alert .bi-megaphone {
+    color: #e67e22;
+    font-size: 2rem;
+    animation: pulse 2s infinite;
+}
+
+#area-mociones .alert .bi-exclamation-triangle {
+    color: #d68910;
+    margin-right: 0.25rem;
+}
+
+/* Animación para el ícono de megáfono */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Animación de entrada de la moción */
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-100px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Botón de moción para editores */
+#btnMocion {
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3);
+}
+
+#btnMocion:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.5);
+}
+
+#btnMocion .bi-megaphone {
+    margin-right: 0.5rem;
+    font-size: 1.1rem;
+}
+
+/* Modal de moción */
+#modalMocion .modal-header {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    border-bottom: 2px solid #e0a800;
+}
+
+#modalMocion .modal-title .bi-megaphone {
+    margin-right: 0.5rem;
+    font-size: 1.2rem;
+}
+
+#modalMocion .alert-info {
+    background-color: #e3f2fd;
+    border-color: #90caf9;
+    color: #0277bd;
+}
+
+#modalMocion .form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+}
+
+#modalMocion .btn-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    border: none;
+    box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3);
+}
+
+#modalMocion .btn-warning:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(255, 193, 7, 0.4);
+}
+
+/* Responsividad para móviles */
+@media (max-width: 768px) {
+    #area-mociones {
+        top: 10px !important;
+        left: 10px !important;
+        right: 10px !important;
+    }
+    
+    #area-mociones .alert {
+        padding: 1rem;
+    }
+    
+    #area-mociones .bi-megaphone {
+        font-size: 1.5rem;
+    }
+    
+    #area-mociones h5 {
+        font-size: 1rem;
+    }
+}
+
+/* Estados de carga */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}

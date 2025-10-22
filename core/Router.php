@@ -202,6 +202,24 @@ class Router {
                 }
                 break;
                 
+            case 'enviar-mocion':
+                if (method_exists($controller, 'enviarMocion')) {
+                    $controller->enviarMocion();
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
+            case 'verificar-mociones':
+                if ($id && method_exists($controller, 'verificarMociones')) {
+                    // El segundo parámetro sería el "desde" (opcional)
+                    $desde = isset($_GET['desde']) ? (int)$_GET['desde'] : 0;
+                    $controller->verificarMociones($id, $desde);
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
             case 'inicializar-puntos':
                 if ($id && method_exists($controller, 'inicializarPuntos')) {
                     $controller->inicializarPuntos($id);

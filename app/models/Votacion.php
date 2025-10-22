@@ -749,5 +749,146 @@ class Votacion extends Model {
         }
         return $result;
     }
+
+    // ============================================
+    // SISTEMA DE MOCIONES
+    // ============================================
+    
+    public function ensureMocionesTable() {
+        try {
+            $query = "CREATE TABLE IF NOT EXISTS mociones (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                sesion_id INT NOT NULL,
+                usuario_id INT NOT NULL,
+                tipo VARCHAR(50) NOT NULL,
+                texto TEXT NOT NULL,
+                autor_nombre VARCHAR(255) NOT NULL,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                activa BOOLEAN DEFAULT TRUE,
+                INDEX idx_sesion (sesion_id),
+                INDEX idx_fecha (fecha_creacion),
+                FOREIGN KEY (sesion_id) REFERENCES sesiones_votacion(id) ON DELETE CASCADE,
+                FOREIGN KEY (usuario_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+            
+            $this->db->exec($query);
+            return true;
+        } catch (Exception $e) {
+            error_log("Error creando tabla mociones: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public function crearMocion($data) {
+        $this->ensureMocionesTable();
+        
+        try {
+            // Mapeo de tipos para mostrar texto amigable
+            $tiposTexto = [
+                'orden' => 'Moción de orden',
+                'aclaracion' => 'Solicitud de aclaración',
+                'reconsideracion' => 'Moción de reconsideración', 
+                'cuestion_previa' => 'Cuestión previa',
+                'otro' => 'Otra moción'
+            ];
+            
+            $query = "INSERT INTO mociones 
+                      (sesion_id, usuario_id, tipo, texto, autor_nombre, fecha_creacion) 
+                      VALUES (?, ?, ?, ?, ?, NOW())";
+            
+            $stmt = $this->db->prepare($query);
+            $success = $stmt->execute([
+                $data['sesion_id'],
+                $data['usuario_id'],
+                $data['tipo'],
+                $data['texto'],
+                $data['autor_nombre']
+            ]);
+            
+            return $success ? $this->db->lastInsertId() : false;
+            
+        } catch (Exception $e) {
+            error_log("Error creando moción: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    public function getMocionById($id) {
+        $this->ensureMocionesTable();
+        
+        try {
+            // Mapeo de tipos para mostrar texto amigable
+            $tiposTexto = [
+                'orden' => 'Moción de orden',
+                'aclaracion' => 'Solicitud de aclaración',
+                'reconsideracion' => 'Moción de reconsideración', 
+                'cuestion_previa' => 'Cuestión previa',
+                'otro' => 'Otra moción'
+            ];
+            
+            $query = "SELECT m.*, 
+                      CASE 
+                          WHEN m.tipo = 'orden' THEN 'Moción de orden'
+                          WHEN m.tipo = 'aclaracion' THEN 'Solicitud de aclaración'
+                          WHEN m.tipo = 'reconsideracion' THEN 'Moción de reconsideración'
+                          WHEN m.tipo = 'cuestion_previa' THEN 'Cuestión previa'
+                          ELSE 'Otra moción'
+                      END as tipo_texto
+                      FROM mociones m 
+                      WHERE m.id = ? AND m.activa = 1";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$id]);
+            
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error obteniendo moción: " . $e->getMessage());
+            return null;
+        }
+    }
+    
+    public function getMocionesRecientes($sesionId, $desde = 0) {
+        $this->ensureMocionesTable();
+        
+        try {
+            $query = "SELECT m.*, 
+                      CASE 
+                          WHEN m.tipo = 'orden' THEN 'Moción de orden'
+                          WHEN m.tipo = 'aclaracion' THEN 'Solicitud de aclaración'
+                          WHEN m.tipo = 'reconsideracion' THEN 'Moción de reconsideración'
+                          WHEN m.tipo = 'cuestion_previa' THEN 'Cuestión previa'
+                          ELSE 'Otra moción'
+                      END as tipo_texto
+                      FROM mociones m 
+                      WHERE m.sesion_id = ? AND m.id > ? AND m.activa = 1
+                      ORDER BY m.fecha_creacion DESC 
+                      LIMIT 10";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$sesionId, $desde]);
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error obteniendo mociones recientes: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    public function desactivarMocion($id) {
+        $this->ensureMocionesTable();
+        
+        try {
+            $query = "UPDATE mociones SET activa = 0 WHERE id = ?";
+            $stmt = $this->db->prepare($query);
+            
+            return $stmt->execute([$id]);
+            
+        } catch (Exception $e) {
+            error_log("Error desactivando moción: " . $e->getMessage());
+            return false;
+        }
+    }
 }
 ?>
