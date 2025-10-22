@@ -1090,7 +1090,7 @@ function mostrarMocion(mocion) {
         icon: 'warning',
         confirmButtonText: 'Entendido',
         confirmButtonColor: '#ffc107',
-        timer: 15000,
+        timer: 5000,
         timerProgressBar: true,
         position: 'top',
         toast: false,
