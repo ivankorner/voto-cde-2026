@@ -183,16 +183,40 @@ ob_start();
                     </small>
                 </div>
                 <?php endif; ?>
-                <!-- Botón de Moción para Editores -->
+                <!-- Controles de Moción para Editores -->
                 <div class="mt-3">
-                    <button class="btn btn-warning btn-sm w-100" id="btnMocion" onclick="abrirModalMocion()">
+                    <button class="btn btn-warning btn-sm w-100 mb-2" id="btnMocion" onclick="abrirModalMocion()">
                         <i class="bi bi-megaphone"></i>
                         Solicitar Moción
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm w-100" onclick="abrirPanelMociones()">
+                        <i class="bi bi-list-ul"></i>
+                        Ver Historial de Mociones
                     </button>
                 </div>
             </div>
         </div>
         <?php endif; ?>
+        
+        <!-- Panel de Mociones (visible para todos) -->
+        <div class="card shadow mt-3">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-chat-left-text"></i>
+                    Comunicaciones de la Sesión
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3 small">
+                    <i class="bi bi-info-circle"></i>
+                    Revise las mociones y comunicaciones realizadas durante la sesión.
+                </p>
+                <button class="btn btn-outline-info btn-sm w-100" onclick="abrirPanelMociones()">
+                    <i class="bi bi-list-ul"></i>
+                    Ver Historial de Mociones
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -685,7 +709,49 @@ function actualizarResultados() {
 }
 </style>
 
-<!-- Área de Notificaciones de Mociones (visible para todos) -->
+<!-- Modal Panel de Mociones (visible para todos) -->
+<div class="modal fade" id="modalPanelMociones" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="bi bi-list-ul"></i>
+                    Historial de Mociones - Sesión
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            Mociones solicitadas durante esta sesión
+                        </small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="actualizarPanelMociones()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        Actualizar
+                    </button>
+                </div>
+                
+                <!-- Lista de mociones -->
+                <div id="lista-mociones">
+                    <div class="text-center py-4" id="loading-mociones">
+                        <div class="spinner-border text-warning" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <div class="mt-2">Cargando mociones...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Área de Notificaciones de Mociones (ya no se usa, pero mantenemos por compatibilidad) -->
 <div id="area-mociones" class="position-fixed" style="top: 20px; left: 20px; right: 20px; z-index: 10000; display: none;">
     <div class="alert alert-warning alert-dismissible fade show shadow-lg border-0" id="notificacion-mocion">
         <div class="d-flex align-items-center">
@@ -896,14 +962,30 @@ function enviarMocion() {
             // Cerrar modal
             bootstrap.Modal.getInstance(document.getElementById('modalMocion')).hide();
             
-            // Mostrar confirmación
-            mostrarToast('Moción enviada exitosamente', 'success');
+            // Mostrar confirmación con SweetAlert2
+            Swal.fire({
+                title: '¡Moción Enviada!',
+                text: 'Su moción ha sido enviada exitosamente a todos los participantes.',
+                icon: 'success',
+                confirmButtonText: 'Aceptar',
+                confirmButtonColor: '#28a745',
+                timer: 3000,
+                position: 'top-end',
+                toast: true,
+                showConfirmButton: false
+            });
             
             // Mostrar la moción inmediatamente
             mostrarMocion(data.mocion);
             
         } else {
-            alert('Error al enviar la moción: ' + (data.error || 'Error desconocido'));
+            Swal.fire({
+                title: 'Error',
+                text: 'Error al enviar la moción: ' + (data.error || 'Error desconocido'),
+                icon: 'error',
+                confirmButtonText: 'Aceptar',
+                confirmButtonColor: '#dc3545'
+            });
         }
     })
     .catch(error => {
@@ -947,19 +1029,6 @@ function verificarNuevasMociones() {
 }
 
 function mostrarMocion(mocion) {
-    const areaMociones = document.getElementById('area-mociones');
-    const textoMocion = document.getElementById('texto-mocion');
-    const autorMocion = document.getElementById('autor-mocion');
-    const horaMocion = document.getElementById('hora-mocion');
-    
-    // Actualizar contenido
-    textoMocion.textContent = `${mocion.tipo_texto}: ${mocion.texto}`;
-    autorMocion.textContent = mocion.autor_nombre;
-    horaMocion.textContent = new Date(mocion.fecha_creacion).toLocaleTimeString();
-    
-    // Mostrar notificación
-    areaMociones.style.display = 'block';
-    
     // Reproducir sonido de notificación (opcional)
     try {
         // Crear un beep simple con Web Audio API
@@ -982,10 +1051,63 @@ function mostrarMocion(mocion) {
         // Silenciar errores de audio
     }
     
-    // Auto-ocultar después de 15 segundos
-    setTimeout(() => {
-        cerrarMocion();
-    }, 15000);
+    // Mostrar moción con SweetAlert2
+    const fechaFormateada = new Date(mocion.fecha_creacion).toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    Swal.fire({
+        title: '📢 MOCIÓN SOLICITADA',
+        html: `
+            <div class="text-start">
+                <div class="alert alert-warning mb-3">
+                    <strong>${mocion.tipo_texto}</strong>
+                </div>
+                <div class="mb-3">
+                    <strong>Descripción:</strong><br>
+                    <span class="text-muted">${mocion.texto}</span>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <small class="text-muted">
+                            <i class="bi bi-person"></i> ${mocion.autor_nombre}
+                        </small>
+                    </div>
+                    <div class="col-6 text-end">
+                        <small class="text-muted">
+                            <i class="bi bi-clock"></i> ${fechaFormateada}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        `,
+        icon: 'warning',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#ffc107',
+        timer: 15000,
+        timerProgressBar: true,
+        position: 'top',
+        toast: false,
+        width: 500,
+        showClass: {
+            popup: 'animate__animated animate__slideInDown'
+        },
+        hideClass: {
+            popup: 'animate__animated animate__slideOutUp'
+        },
+        customClass: {
+            container: 'swal-mocion-container',
+            popup: 'swal-mocion-popup',
+            title: 'swal-mocion-title'
+        }
+    });
+    
+    // Actualizar el panel de mociones si existe
+    if (typeof actualizarPanelMociones === 'function') {
+        actualizarPanelMociones();
+    }
 }
 
 function cerrarMocion() {
@@ -1017,6 +1139,134 @@ function mostrarToast(mensaje, tipo = 'info') {
             toast.remove();
         }
     }, 5000);
+}
+
+
+
+// === PANEL DE MOCIONES (DISPONIBLE PARA TODOS) ===
+
+function abrirPanelMociones() {
+    const modal = new bootstrap.Modal(document.getElementById('modalPanelMociones'));
+    modal.show();
+    
+    // Cargar mociones al abrir el panel
+    actualizarPanelMociones();
+}
+
+function actualizarPanelMociones() {
+    const loading = document.getElementById('loading-mociones');
+    const listaMociones = document.getElementById('lista-mociones');
+    
+    // Mostrar loading
+    loading.style.display = 'block';
+    
+    fetch(BASE_URL + `votacion/obtener-mociones/${window.sesionId || <?= $sesion['id'] ?>}`)
+        .then(response => response.json())
+        .then(data => {
+            loading.style.display = 'none';
+            
+            if (data.success && data.mociones) {
+                mostrarListaMociones(data.mociones);
+            } else {
+                listaMociones.innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="bi bi-info-circle"></i>
+                        No hay mociones registradas para esta sesión
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            loading.style.display = 'none';
+            console.error('Error cargando mociones:', error);
+            listaMociones.innerHTML = `
+                <div class="alert alert-danger text-center">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Error al cargar las mociones
+                </div>
+            `;
+        });
+}
+
+function mostrarListaMociones(mociones) {
+    const listaMociones = document.getElementById('lista-mociones');
+    
+    if (mociones.length === 0) {
+        listaMociones.innerHTML = `
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle"></i>
+                No hay mociones registradas para esta sesión
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    mociones.forEach((mocion, index) => {
+        const fechaFormateada = new Date(mocion.fecha_creacion).toLocaleString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        
+        const badgeColor = getBadgeColorForTipo(mocion.tipo);
+        
+        html += `
+            <div class="card mb-3 shadow-sm border-start border-warning border-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="badge ${badgeColor} me-2">${mocion.tipo_texto}</span>
+                            <small class="text-muted">#${mocion.id}</small>
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-clock"></i> ${fechaFormateada}
+                        </small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <p class="mb-2">${mocion.texto}</p>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted">
+                                <i class="bi bi-person"></i>
+                                <strong>${mocion.autor_nombre}</strong>
+                            </small>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <span class="badge bg-success">Activa</span>
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    onclick="pararMocion(${mocion.id}, '${mocion.tipo_texto}')"
+                                    title="Detener alertas de esta moción">
+                                <i class="bi bi-stop-circle"></i>
+                                Parar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    listaMociones.innerHTML = html;
+}
+
+function getBadgeColorForTipo(tipo) {
+    const colores = {
+        'orden': 'bg-danger',
+        'aclaracion': 'bg-info',
+        'reconsideracion': 'bg-warning text-dark',
+        'cuestion_previa': 'bg-primary',
+        'otro': 'bg-secondary'
+    };
+    
+    return colores[tipo] || 'bg-secondary';
 }
 
 // Iniciar verificación de mociones al cargar la página (para todos los usuarios)

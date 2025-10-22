@@ -961,5 +961,25 @@ class VotacionController extends Controller {
             $this->sendJSON(['success' => false, 'error' => 'Error al verificar mociones']);
         }
     }
+    
+    public function obtenerMociones($sesionId) {
+        try {
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Obtener todas las mociones de la sesión (no solo las recientes)
+            $mociones = $votacionModel->getTodasLasMociones($sesionId);
+            
+            $this->sendJSON([
+                'success' => true,
+                'mociones' => $mociones,
+                'total' => count($mociones),
+                'timestamp' => date('Y-m-d H:i:s')
+            ]);
+            
+        } catch (Exception $e) {
+            error_log("Error en obtenerMociones: " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'error' => 'Error al obtener mociones']);
+        }
+    }
 }
 ?>

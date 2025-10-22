@@ -876,6 +876,33 @@ class Votacion extends Model {
         }
     }
     
+    public function getTodasLasMociones($sesionId) {
+        $this->ensureMocionesTable();
+        
+        try {
+            $query = "SELECT m.*, 
+                      CASE 
+                          WHEN m.tipo = 'orden' THEN 'Moción de orden'
+                          WHEN m.tipo = 'aclaracion' THEN 'Solicitud de aclaración'
+                          WHEN m.tipo = 'reconsideracion' THEN 'Moción de reconsideración'
+                          WHEN m.tipo = 'cuestion_previa' THEN 'Cuestión previa'
+                          ELSE 'Otra moción'
+                      END as tipo_texto
+                      FROM mociones m 
+                      WHERE m.sesion_id = ? AND m.activa = 1
+                      ORDER BY m.fecha_creacion DESC";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$sesionId]);
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error obteniendo todas las mociones: " . $e->getMessage());
+            return [];
+        }
+    }
+    
     public function desactivarMocion($id) {
         $this->ensureMocionesTable();
         

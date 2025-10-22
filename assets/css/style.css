@@ -409,3 +409,53 @@ main {
     width: 1rem;
     height: 1rem;
 }
+
+/* === SWEETALERT2 PERSONALIZADO PARA MOCIONES === */
+
+.swal-mocion-container {
+    z-index: 10000 !important;
+}
+
+.swal-mocion-popup {
+    border-left: 6px solid #e67e22 !important;
+    box-shadow: 0 12px 32px rgba(243, 156, 18, 0.4) !important;
+}
+
+.swal-mocion-title {
+    color: #d68910 !important;
+    font-weight: bold !important;
+}
+
+/* Panel de mociones */
+#modalPanelMociones .modal-header {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    border-bottom: 2px solid #e0a800;
+}
+
+#modalPanelMociones .card {
+    transition: all 0.3s ease;
+}
+
+#modalPanelMociones .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+#modalPanelMociones .border-warning {
+    border-width: 3px !important;
+}
+
+/* Badges para tipos de moción */
+#modalPanelMociones .badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
+}
+
+/* Loading en panel de mociones */
+#loading-mociones {
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
