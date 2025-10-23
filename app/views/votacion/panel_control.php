@@ -119,6 +119,75 @@ ob_start();
                     </div>
                 </div>
 
+                <!-- Control de Mociones -->
+                <div class="card shadow-sm mb-4" id="panel-control-mociones">
+                    <div class="card-header bg-light">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-megaphone"></i> Control de Mociones
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <button class="btn btn-danger me-2" onclick="pararTodasLasMociones()" data-bs-toggle="tooltip" title="Detiene todas las mociones activas">
+                                    <i class="bi bi-stop-circle"></i> Parar Todas las Mociones
+                                </button>
+                                <button class="btn btn-info me-2" onclick="refrescarMociones()" data-bs-toggle="tooltip" title="Actualiza la lista de mociones">
+                                    <i class="bi bi-arrow-clockwise"></i> Refrescar
+                                </button>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button class="btn btn-secondary me-2" onclick="debugMociones()" data-bs-toggle="tooltip" title="Debug: Ver datos de mociones">
+                                    <i class="bi bi-bug"></i> Debug
+                                </button>
+                                <button class="btn btn-warning" onclick="limpiarHistorialMociones()" data-bs-toggle="tooltip" title="Limpia el historial de mociones antiguas">
+                                    <i class="bi bi-trash"></i> Limpiar Historial
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Lista de Mociones Activas -->
+                        <div class="row">
+                            <div class="col-12">
+                                <h6><i class="bi bi-broadcast"></i> Mociones Activas</h6>
+                                <div class="table-responsive mb-4" style="max-height: 300px; overflow-y: auto;">
+                                    <table class="table table-sm table-hover" id="tabla-mociones-activas">
+                                        <thead class="table-dark sticky-top">
+                                            <tr>
+                                                <th>Usuario</th>
+                                                <th>Mensaje</th>
+                                                <th>Hora</th>
+                                                <th>Estado</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Se llenará dinámicamente -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <h6><i class="bi bi-clock-history"></i> Historial de Mociones</h6>
+                                <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                                    <table class="table table-sm" id="tabla-historial-mociones">
+                                        <thead class="table-secondary sticky-top">
+                                            <tr>
+                                                <th>Usuario</th>
+                                                <th>Mensaje</th>
+                                                <th>Hora</th>
+                                                <th>Estado Final</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Se llenará dinámicamente -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Lista de Puntos -->
                 <div class="card shadow-sm">
                     <div class="card-header">
@@ -571,6 +640,315 @@ function reinicializarPuntos() {
 // Limpiar intervals al salir de la página
 window.addEventListener('beforeunload', function() {
     detenerAutoRefresh();
+});
+
+// ======== FUNCIONES DE CONTROL DE MOCIONES ========
+
+let intervalMociones = null;
+
+function iniciarAutoRefreshMociones() {
+    if (intervalMociones) clearInterval(intervalMociones);
+    intervalMociones = setInterval(cargarMociones, 3000); // Actualizar cada 3 segundos
+    cargarMociones(); // Carga inicial
+}
+
+function cargarMociones() {
+    console.log('Cargando mociones para sesión:', sesionId);
+    
+    const formData = new FormData();
+    formData.append('sesion_id', sesionId);
+    formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+    
+    fetch('<?= BASE_URL ?>votacion/admin-mociones', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        console.log('Respuesta del servidor:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Datos recibidos:', data);
+        if (data.success) {
+            console.log('Mociones activas:', data.mociones_activas.length);
+            console.log('Historial mociones:', data.historial_mociones.length);
+            actualizarTablaMociones(data.mociones_activas, data.historial_mociones);
+        } else {
+            console.error('Error en respuesta:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error cargando mociones:', error);
+    });
+}
+
+function actualizarTablaMociones(mocionesActivas, historialMociones) {
+    // Actualizar tabla de mociones activas
+    const tablaActivas = document.querySelector('#tabla-mociones-activas tbody');
+    tablaActivas.innerHTML = '';
+    
+    mocionesActivas.forEach(mocion => {
+        const fila = document.createElement('tr');
+        fila.innerHTML = `
+            <td><strong>${mocion.usuario}</strong></td>
+            <td>${mocion.mensaje}</td>
+            <td>${formatearHora(mocion.created_at)}</td>
+            <td>
+                <span class="badge bg-${mocion.activa == 1 ? 'success' : 'secondary'}">
+                    ${mocion.activa == 1 ? 'Activa' : 'Pausada'}
+                </span>
+            </td>
+            <td>
+                ${mocion.activa == 1 ? 
+                    `<button class="btn btn-sm btn-danger" onclick="pararMocionIndividual(${mocion.id})" title="Parar esta moción">
+                        <i class="bi bi-stop-circle"></i>
+                    </button>` : 
+                    `<button class="btn btn-sm btn-success" onclick="reactivarMocion(${mocion.id})" title="Reactivar moción">
+                        <i class="bi bi-play-circle"></i>
+                    </button>`
+                }
+            </td>
+        `;
+        tablaActivas.appendChild(fila);
+    });
+    
+    // Actualizar tabla de historial
+    const tablaHistorial = document.querySelector('#tabla-historial-mociones tbody');
+    tablaHistorial.innerHTML = '';
+    
+    historialMociones.forEach(mocion => {
+        const fila = document.createElement('tr');
+        fila.innerHTML = `
+            <td>${mocion.usuario}</td>
+            <td>${mocion.mensaje}</td>
+            <td>${formatearHora(mocion.created_at)}</td>
+            <td>
+                <span class="badge bg-${mocion.activa == 0 ? 'secondary' : 'info'}">
+                    ${mocion.activa == 0 ? 'Finalizada' : 'Expirada'}
+                </span>
+            </td>
+        `;
+        tablaHistorial.appendChild(fila);
+    });
+}
+
+function formatearHora(fechaString) {
+    const fecha = new Date(fechaString);
+    return fecha.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+}
+
+function pararTodasLasMociones() {
+    Swal.fire({
+        title: '¿Parar todas las mociones?',
+        text: 'Esto detendrá todas las mociones activas de los editores',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, parar todas',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const formData = new FormData();
+            formData.append('sesion_id', sesionId);
+            formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+            
+            fetch('<?= BASE_URL ?>votacion/admin-parar-todas-mociones', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Mociones Detenidas',
+                        text: `Se han detenido ${data.mociones_paradas} mociones`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    cargarMociones();
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message || 'Error al parar las mociones'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error de conexión'
+                });
+            });
+        }
+    });
+}
+
+function pararMocionIndividual(mocionId) {
+    Swal.fire({
+        title: '¿Parar esta moción?',
+        text: 'Esta moción dejará de mostrarse a los usuarios',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, parar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const formData = new FormData();
+            formData.append('mocion_id', mocionId);
+            formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+            
+            fetch('<?= BASE_URL ?>votacion/parar-mocion', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    cargarMociones();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Moción Detenida',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function reactivarMocion(mocionId) {
+    const formData = new FormData();
+    formData.append('mocion_id', mocionId);
+    formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+    
+    fetch('<?= BASE_URL ?>votacion/reactivar-mocion', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            cargarMociones();
+            Swal.fire({
+                icon: 'success',
+                title: 'Moción Reactivada',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function refrescarMociones() {
+    cargarMociones();
+    Swal.fire({
+        icon: 'info',
+        title: 'Actualizado',
+        text: 'Lista de mociones actualizada',
+        timer: 1000,
+        showConfirmButton: false
+    });
+}
+
+function limpiarHistorialMociones() {
+    Swal.fire({
+        title: '¿Limpiar historial de mociones?',
+        text: 'Esto eliminará todas las mociones inactivas/finalizadas de la base de datos',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ffc107',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, limpiar historial',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const formData = new FormData();
+            formData.append('sesion_id', sesionId);
+            formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+            
+            fetch('<?= BASE_URL ?>votacion/limpiar-historial-mociones', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    cargarMociones();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Historial Limpiado',
+                        text: `Se eliminaron ${data.mociones_eliminadas} mociones del historial`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+// FUNCIÓN TEMPORAL PARA DEBUG - ELIMINAR EN PRODUCCIÓN
+function debugMociones() {
+    fetch('<?= BASE_URL ?>votacion/debug-mociones', {
+        method: 'GET'
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('=== DEBUG MOCIONES ===');
+        console.log('Todas las mociones:', data.todas_las_mociones);
+        console.log('Estructura tabla:', data.estructura_tabla);
+        console.log('Count total:', data.count_total);
+        
+        // Mostrar en un alert para fácil visualización
+        Swal.fire({
+            title: 'Debug Mociones',
+            html: `
+                <div style="text-align: left;">
+                    <p><strong>Total mociones en DB:</strong> ${data.count_total}</p>
+                    <p><strong>Estructura tabla:</strong></p>
+                    <pre style="text-align: left; font-size: 12px;">${JSON.stringify(data.estructura_tabla, null, 2)}</pre>
+                    <p><strong>Últimas 10 mociones:</strong></p>
+                    <pre style="text-align: left; font-size: 11px; max-height: 200px; overflow-y: auto;">${JSON.stringify(data.todas_las_mociones, null, 2)}</pre>
+                </div>
+            `,
+            width: '800px',
+            confirmButtonText: 'Cerrar'
+        });
+    })
+    .catch(error => {
+        console.error('Error en debug:', error);
+    });
+}
+
+// Inicializar el control de mociones cuando se carga la página
+document.addEventListener('DOMContentLoaded', function() {
+    iniciarAutoRefreshMociones();
+});
+
+// Detener auto-refresh de mociones al salir
+window.addEventListener('beforeunload', function() {
+    if (intervalMociones) clearInterval(intervalMociones);
 });
 </script>
 

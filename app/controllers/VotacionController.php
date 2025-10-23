@@ -1122,5 +1122,226 @@ class VotacionController extends Controller {
             $this->sendJSON(['success' => false, 'error' => 'Error interno del servidor']);
         }
     }
+
+    // ============================================
+    // ADMINISTRACIÓN DE MOCIONES (SOLO ADMIN)
+    // ============================================
+
+    public function adminMociones() {
+        $this->requireAdmin();
+        
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                $this->sendJSON(['success' => false, 'error' => 'Método no permitido']);
+                return;
+            }
+
+            // Validar token CSRF (termina ejecución si falla)
+            $this->validateCSRF();
+
+            $sesionId = $_POST['sesion_id'] ?? '';
+            
+            if (empty($sesionId)) {
+                $this->sendJSON(['success' => false, 'error' => 'Sesión ID requerido']);
+                return;
+            }
+
+            // Log para debug
+            error_log("AdminMociones: Buscando mociones para sesión ID: {$sesionId}");
+
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Obtener mociones activas
+            $mocionesActivas = $votacionModel->getMocionesPorSesion($sesionId, true);
+            
+            // Obtener historial de mociones (últimas 50 inactivas)
+            $historialMociones = $votacionModel->getHistorialMociones($sesionId, 50);
+            
+            // Log para debug
+            error_log("AdminMociones: Encontradas " . count($mocionesActivas) . " mociones activas y " . count($historialMociones) . " en historial");
+            
+            $this->sendJSON([
+                'success' => true,
+                'mociones_activas' => $mocionesActivas,
+                'historial_mociones' => $historialMociones,
+                'debug_info' => [
+                    'sesion_id' => $sesionId,
+                    'activas_count' => count($mocionesActivas),
+                    'historial_count' => count($historialMociones)
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            error_log("Error en adminMociones: " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'error' => 'Error interno del servidor', 'debug' => $e->getMessage()]);
+        }
+    }
+
+    public function adminPararTodasMociones() {
+        $this->requireAdmin();
+        
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                $this->sendJSON(['success' => false, 'error' => 'Método no permitido']);
+                return;
+            }
+
+            // Validar token CSRF (termina ejecución si falla)
+            $this->validateCSRF();
+
+            $sesionId = $_POST['sesion_id'] ?? '';
+            
+            if (empty($sesionId)) {
+                $this->sendJSON(['success' => false, 'error' => 'Sesión ID requerido']);
+                return;
+            }
+
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Parar todas las mociones activas de la sesión
+            $mocionesParadas = $votacionModel->pararTodasMocionesSesion($sesionId);
+            
+            // Log de la acción administrativa
+            error_log("Admin {$_SESSION['user_name']} (ID: {$_SESSION['user_id']}) paró {$mocionesParadas} mociones en sesión {$sesionId}");
+            
+            $this->sendJSON([
+                'success' => true,
+                'message' => 'Todas las mociones han sido detenidas',
+                'mociones_paradas' => $mocionesParadas
+            ]);
+
+        } catch (Exception $e) {
+            error_log("Error en adminPararTodasMociones: " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'error' => 'Error interno del servidor']);
+        }
+    }
+
+    public function reactivarMocion() {
+        $this->requireAdmin();
+        
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                $this->sendJSON(['success' => false, 'error' => 'Método no permitido']);
+                return;
+            }
+
+            // Validar token CSRF (termina ejecución si falla)
+            $this->validateCSRF();
+
+            $mocionId = $_POST['mocion_id'] ?? '';
+            
+            if (empty($mocionId)) {
+                $this->sendJSON(['success' => false, 'error' => 'ID de moción requerido']);
+                return;
+            }
+
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Verificar que la moción existe
+            $mocion = $votacionModel->obtenerMocionPorId($mocionId);
+            if (!$mocion) {
+                $this->sendJSON(['success' => false, 'error' => 'Moción no encontrada']);
+                return;
+            }
+            
+            // Reactivar la moción
+            $resultado = $votacionModel->reactivarMocion($mocionId);
+            
+            if ($resultado) {
+                // Log de la acción administrativa
+                error_log("Admin {$_SESSION['user_name']} (ID: {$_SESSION['user_id']}) reactivó moción #{$mocionId}");
+                
+                $this->sendJSON([
+                    'success' => true, 
+                    'message' => 'Moción reactivada exitosamente',
+                    'mocion_id' => $mocionId
+                ]);
+            } else {
+                $this->sendJSON(['success' => false, 'error' => 'Error al reactivar la moción']);
+            }
+
+        } catch (Exception $e) {
+            error_log("Error en reactivarMocion: " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'error' => 'Error interno del servidor']);
+        }
+    }
+
+    public function limpiarHistorialMociones() {
+        $this->requireAdmin();
+        
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                $this->sendJSON(['success' => false, 'error' => 'Método no permitido']);
+                return;
+            }
+
+            // Validar token CSRF (termina ejecución si falla)
+            $this->validateCSRF();
+
+            $sesionId = $_POST['sesion_id'] ?? '';
+            
+            if (empty($sesionId)) {
+                $this->sendJSON(['success' => false, 'error' => 'Sesión ID requerido']);
+                return;
+            }
+
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Limpiar historial de mociones (solo las inactivas)
+            $mocionesEliminadas = $votacionModel->limpiarHistorialMociones($sesionId);
+            
+            // Log de la acción administrativa
+            error_log("Admin {$_SESSION['user_name']} (ID: {$_SESSION['user_id']}) limpió {$mocionesEliminadas} mociones del historial en sesión {$sesionId}");
+            
+            $this->sendJSON([
+                'success' => true,
+                'message' => 'Historial de mociones limpiado',
+                'mociones_eliminadas' => $mocionesEliminadas
+            ]);
+
+        } catch (Exception $e) {
+            error_log("Error en limpiarHistorialMociones: " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'error' => 'Error interno del servidor']);
+        }
+    }
+
+    // MÉTODO TEMPORAL PARA DEBUG - ELIMINAR EN PRODUCCIÓN
+    public function debugMociones() {
+        $this->requireAdmin();
+        
+        try {
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Query directa a la tabla mociones
+            $query = "SELECT m.*, u.name as usuario_name FROM mociones m LEFT JOIN users u ON m.usuario_id = u.id ORDER BY m.fecha_creacion DESC LIMIT 10";
+            $stmt = $votacionModel->db->prepare($query);
+            $stmt->execute();
+            $todasLasMociones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Query para verificar estructura de tabla
+            $queryStructure = "DESCRIBE mociones";
+            $stmtStructure = $votacionModel->db->prepare($queryStructure);
+            $stmtStructure->execute();
+            $estructura = $stmtStructure->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Contar todas las mociones en la tabla
+            $queryCount = "SELECT COUNT(*) as total FROM mociones";
+            $stmtCount = $votacionModel->db->prepare($queryCount);
+            $stmtCount->execute();
+            $totalCount = $stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            $this->sendJSON([
+                'success' => true,
+                'todas_las_mociones' => $todasLasMociones,
+                'estructura_tabla' => $estructura,
+                'count_total' => $totalCount,
+                'count_mostradas' => count($todasLasMociones)
+            ]);
+
+        } catch (Exception $e) {
+            error_log("Error en debugMociones: " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'error' => 'Error: ' . $e->getMessage()]);
+        }
+    }
 }
 ?>

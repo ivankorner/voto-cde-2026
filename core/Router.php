@@ -237,6 +237,46 @@ class Router {
                 }
                 break;
                 
+            case 'admin-mociones':
+                if (method_exists($controller, 'adminMociones')) {
+                    $controller->adminMociones();
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
+            case 'admin-parar-todas-mociones':
+                if (method_exists($controller, 'adminPararTodasMociones')) {
+                    $controller->adminPararTodasMociones();
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
+            case 'reactivar-mocion':
+                if (method_exists($controller, 'reactivarMocion')) {
+                    $controller->reactivarMocion();
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
+            case 'limpiar-historial-mociones':
+                if (method_exists($controller, 'limpiarHistorialMociones')) {
+                    $controller->limpiarHistorialMociones();
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
+            case 'debug-mociones':
+                if (method_exists($controller, 'debugMociones')) {
+                    $controller->debugMociones();
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
             case 'inicializar-puntos':
                 if ($id && method_exists($controller, 'inicializarPuntos')) {
                     $controller->inicializarPuntos($id);

@@ -919,5 +919,155 @@ class Votacion extends Model {
             return false;
         }
     }
+
+    // ============================================
+    // MÉTODOS DE ADMINISTRACIÓN DE MOCIONES
+    // ============================================
+
+    public function getMocionesPorSesion($sesionId, $soloActivas = false) {
+        $this->ensureMocionesTable();
+        
+        try {
+            $whereClause = "WHERE m.sesion_id = ?";
+            $params = [$sesionId];
+            
+            if ($soloActivas) {
+                $whereClause .= " AND m.activa = 1";
+            }
+            
+            $query = "
+                SELECT m.*, 
+                       m.texto as mensaje,
+                       m.fecha_creacion as created_at,
+                       COALESCE(u.name, m.autor_nombre) as usuario 
+                FROM mociones m 
+                LEFT JOIN users u ON m.usuario_id = u.id 
+                {$whereClause}
+                ORDER BY m.fecha_creacion DESC
+            ";
+            
+            // Log para debug
+            error_log("Query getMocionesPorSesion: " . $query);
+            error_log("Parámetros: " . print_r($params, true));
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute($params);
+            
+            $resultado = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            error_log("Resultados encontrados: " . count($resultado));
+            
+            return $resultado;
+            
+        } catch (Exception $e) {
+            error_log("Error obteniendo mociones por sesión: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getHistorialMociones($sesionId, $limite = 50) {
+        $this->ensureMocionesTable();
+        
+        try {
+            $query = "
+                SELECT m.*, 
+                       m.texto as mensaje,
+                       m.fecha_creacion as created_at,
+                       COALESCE(u.name, m.autor_nombre) as usuario 
+                FROM mociones m 
+                LEFT JOIN users u ON m.usuario_id = u.id 
+                WHERE m.sesion_id = ? AND m.activa = 0
+                ORDER BY m.fecha_creacion DESC
+                LIMIT ?
+            ";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$sesionId, $limite]);
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error obteniendo historial de mociones: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function pararTodasMocionesSesion($sesionId) {
+        $this->ensureMocionesTable();
+        
+        try {
+            $query = "UPDATE mociones SET activa = 0 WHERE sesion_id = ? AND activa = 1";
+            $stmt = $this->db->prepare($query);
+            
+            if ($stmt->execute([$sesionId])) {
+                return $stmt->rowCount(); // Retorna el número de mociones afectadas
+            }
+            
+            return 0;
+            
+        } catch (Exception $e) {
+            error_log("Error parando todas las mociones: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    public function obtenerMocionPorId($id) {
+        $this->ensureMocionesTable();
+        
+        try {
+            $query = "
+                SELECT m.*, 
+                       m.texto as mensaje,
+                       m.fecha_creacion as created_at,
+                       COALESCE(u.name, m.autor_nombre) as usuario 
+                FROM mociones m 
+                LEFT JOIN users u ON m.usuario_id = u.id 
+                WHERE m.id = ?
+            ";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$id]);
+            
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            error_log("Error obteniendo moción por ID: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function reactivarMocion($id) {
+        $this->ensureMocionesTable();
+        
+        try {
+            $query = "UPDATE mociones SET activa = 1 WHERE id = ?";
+            $stmt = $this->db->prepare($query);
+            
+            return $stmt->execute([$id]);
+            
+        } catch (Exception $e) {
+            error_log("Error reactivando moción: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function limpiarHistorialMociones($sesionId) {
+        $this->ensureMocionesTable();
+        
+        try {
+            // Solo eliminar mociones inactivas (que no están siendo mostradas)
+            $query = "DELETE FROM mociones WHERE sesion_id = ? AND activa = 0";
+            $stmt = $this->db->prepare($query);
+            
+            if ($stmt->execute([$sesionId])) {
+                return $stmt->rowCount(); // Retorna el número de mociones eliminadas
+            }
+            
+            return 0;
+            
+        } catch (Exception $e) {
+            error_log("Error limpiando historial de mociones: " . $e->getMessage());
+            return 0;
+        }
+    }
 }
 ?>

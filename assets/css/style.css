@@ -484,3 +484,146 @@ main {
     justify-content: center;
     align-items: center;
 }
+
+/* ========================================== */
+/* PANEL DE CONTROL DE MOCIONES (ADMIN) */
+/* ========================================== */
+
+#panel-control-mociones {
+    border-left: 4px solid var(--warning-color);
+}
+
+#panel-control-mociones .card-header {
+    background: linear-gradient(135deg, #ffc107 0%, #ffcd39 100%);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+#panel-control-mociones .card-header h5 {
+    color: #333;
+    font-weight: 600;
+}
+
+/* Tablas de mociones */
+#tabla-mociones-activas,
+#tabla-historial-mociones {
+    border: 1px solid var(--border-color);
+}
+
+#tabla-mociones-activas thead,
+#tabla-historial-mociones thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#tabla-mociones-activas tbody tr:hover {
+    background-color: #fff3cd;
+}
+
+#tabla-historial-mociones tbody tr {
+    opacity: 0.7;
+}
+
+#tabla-historial-mociones tbody tr:hover {
+    opacity: 1;
+    background-color: #f8f9fa;
+}
+
+/* Badges en tablas de mociones */
+.badge.bg-success {
+    animation: pulse-success 2s infinite;
+}
+
+@keyframes pulse-success {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Botones de control de mociones */
+.btn[onclick*="pararMocionIndividual"] {
+    transition: all 0.2s ease;
+}
+
+.btn[onclick*="pararMocionIndividual"]:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.btn[onclick*="reactivarMocion"] {
+    transition: all 0.2s ease;
+}
+
+.btn[onclick*="reactivarMocion"]:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+/* Scrollbars personalizados para tablas */
+#panel-control-mociones .table-responsive::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#panel-control-mociones .table-responsive::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+#panel-control-mociones .table-responsive::-webkit-scrollbar-thumb {
+    background: #dee2e6;
+    border-radius: 4px;
+}
+
+#panel-control-mociones .table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+}
+
+/* Indicadores de estado */
+.badge.bg-success.pulse {
+    animation: pulse-active 1.5s infinite;
+}
+
+@keyframes pulse-active {
+    0%, 100% { 
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.8;
+        transform: scale(1.05);
+    }
+}
+
+/* Botones principales del panel de control */
+#panel-control-mociones .btn[onclick*="pararTodasLasMociones"] {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.2);
+}
+
+#panel-control-mociones .btn[onclick*="limpiarHistorialMociones"] {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+}
+
+#panel-control-mociones .btn[onclick*="refrescarMociones"] {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(23, 162, 184, 0.2);
+}
+
+/* Responsivo para pantallas pequeñas */
+@media (max-width: 768px) {
+    #panel-control-mociones .col-md-6 {
+        margin-bottom: 1rem;
+    }
+    
+    #panel-control-mociones .col-md-6.text-end {
+        text-align: left !important;
+    }
+    
+    #panel-control-mociones .table-responsive {
+        font-size: 0.9rem;
+    }
+}
