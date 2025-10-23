@@ -1147,18 +1147,24 @@ class VotacionController extends Controller {
             }
 
             // Log para debug
-            error_log("AdminMociones: Buscando mociones para sesión ID: {$sesionId}");
+            error_log("=== AdminMociones INICIANDO ===");
+            error_log("Sesión ID recibido: '{$sesionId}' (tipo: " . gettype($sesionId) . ")");
 
             $votacionModel = $this->loadModel('Votacion');
             
             // Obtener mociones activas
+            error_log("Buscando mociones ACTIVAS para sesión {$sesionId}...");
             $mocionesActivas = $votacionModel->getMocionesPorSesion($sesionId, true);
+            error_log("Mociones ACTIVAS encontradas: " . count($mocionesActivas));
             
             // Obtener historial de mociones (últimas 50 inactivas)
+            error_log("Buscando HISTORIAL de mociones para sesión {$sesionId}...");
             $historialMociones = $votacionModel->getHistorialMociones($sesionId, 50);
+            error_log("Mociones en HISTORIAL encontradas: " . count($historialMociones));
             
-            // Log para debug
-            error_log("AdminMociones: Encontradas " . count($mocionesActivas) . " mociones activas y " . count($historialMociones) . " en historial");
+            // Debug adicional: verificar si hay mociones en general
+            $todasLasMociones = $votacionModel->getTodasLasMociones($sesionId);
+            error_log("TODAS las mociones (activas + inactivas) para sesión {$sesionId}: " . count($todasLasMociones));
             
             $this->sendJSON([
                 'success' => true,
@@ -1312,36 +1318,48 @@ class VotacionController extends Controller {
         try {
             $votacionModel = $this->loadModel('Votacion');
             
-            // Query directa a la tabla mociones
-            $query = "SELECT m.*, u.name as usuario_name FROM mociones m LEFT JOIN users u ON m.usuario_id = u.id ORDER BY m.fecha_creacion DESC LIMIT 10";
-            $stmt = $votacionModel->db->prepare($query);
-            $stmt->execute();
-            $todasLasMociones = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            // Query para verificar estructura de tabla
-            $queryStructure = "DESCRIBE mociones";
-            $stmtStructure = $votacionModel->db->prepare($queryStructure);
-            $stmtStructure->execute();
-            $estructura = $stmtStructure->fetchAll(PDO::FETCH_ASSOC);
-            
-            // Contar todas las mociones en la tabla
-            $queryCount = "SELECT COUNT(*) as total FROM mociones";
-            $stmtCount = $votacionModel->db->prepare($queryCount);
-            $stmtCount->execute();
-            $totalCount = $stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
+            // Debug completo de la tabla mociones
+            $debugResult = $votacionModel->debugTablaMociones();
             
             $this->sendJSON([
                 'success' => true,
-                'todas_las_mociones' => $todasLasMociones,
-                'estructura_tabla' => $estructura,
-                'count_total' => $totalCount,
-                'count_mostradas' => count($todasLasMociones)
+                'debug_completo' => $debugResult
             ]);
 
         } catch (Exception $e) {
-            error_log("Error en debugMociones: " . $e->getMessage());
-            $this->sendJSON(['success' => false, 'error' => 'Error: ' . $e->getMessage()]);
+            $this->sendJSON([
+                'success' => false, 
+                'error' => 'Error: ' . $e->getMessage(),
+                'stack' => $e->getTraceAsString()
+            ]);
         }
     }
+
+    // MÉTODO TEMPORAL PARA REACTIVAR MOCIONES - USAR UNA VEZ
+    public function reactivarTodasMociones() {
+        $this->requireAdmin();
+        
+        try {
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Usar el método del modelo en lugar de acceso directo a db
+            $mocionesReactivadas = $votacionModel->reactivarTodasMocionesSesion(14);
+            
+            $this->sendJSON([
+                'success' => true,
+                'mensaje' => "Se reactivaron {$mocionesReactivadas} mociones",
+                'mociones_reactivadas' => $mocionesReactivadas
+            ]);
+
+        } catch (Exception $e) {
+            error_log("Error en reactivarTodasMociones: " . $e->getMessage());
+            $this->sendJSON([
+                'success' => false, 
+                'error' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+
 }
 ?>

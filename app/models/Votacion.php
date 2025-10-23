@@ -793,8 +793,8 @@ class Votacion extends Model {
             ];
             
             $query = "INSERT INTO mociones 
-                      (sesion_id, usuario_id, tipo, texto, autor_nombre, fecha_creacion) 
-                      VALUES (?, ?, ?, ?, ?, NOW())";
+                      (sesion_id, usuario_id, tipo, texto, autor_nombre, fecha_creacion, activa) 
+                      VALUES (?, ?, ?, ?, ?, NOW(), 1)";
             
             $stmt = $this->db->prepare($query);
             $success = $stmt->execute([
@@ -877,30 +877,60 @@ class Votacion extends Model {
         }
     }
     
-    public function getTodasLasMociones($sesionId) {
+    public function getTodasLasMociones($sesionId = 0) {
         $this->ensureMocionesTable();
         
         try {
-            // Para el historial, mostrar todas las mociones (activas e inactivas)
-            $query = "SELECT m.*, 
+            // Query simplificada SIN JOIN para evitar problemas
+            $query = "SELECT 
+                      id,
+                      sesion_id,
+                      usuario_id,
+                      tipo,
+                      texto,
+                      autor_nombre,
+                      fecha_creacion,
+                      activa,
                       CASE 
-                          WHEN m.tipo = 'orden' THEN 'Moción de orden'
-                          WHEN m.tipo = 'aclaracion' THEN 'Solicitud de aclaración'
-                          WHEN m.tipo = 'reconsideracion' THEN 'Moción de reconsideración'
-                          WHEN m.tipo = 'cuestion_previa' THEN 'Cuestión previa'
+                          WHEN tipo = 'orden' THEN 'Moción de orden'
+                          WHEN tipo = 'aclaracion' THEN 'Solicitud de aclaración'
+                          WHEN tipo = 'reconsideracion' THEN 'Moción de reconsideración'
+                          WHEN tipo = 'cuestion_previa' THEN 'Cuestión previa'
                           ELSE 'Otra moción'
-                      END as tipo_texto
-                      FROM mociones m 
-                      WHERE m.sesion_id = ?
-                      ORDER BY m.fecha_creacion DESC";
+                      END as tipo_texto,
+                      texto as mensaje,
+                      fecha_creacion as created_at,
+                      autor_nombre as usuario
+                      FROM mociones";
+            
+            if ($sesionId > 0) {
+                $query .= " WHERE sesion_id = ?";
+            }
+            
+            $query .= " ORDER BY fecha_creacion DESC";
+            
+            error_log("=== getTodasLasMociones Debug ===");
+            error_log("Sesión filtro: " . $sesionId);
+            error_log("Query: " . str_replace("\n", " ", $query));
             
             $stmt = $this->db->prepare($query);
-            $stmt->execute([$sesionId]);
             
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            if ($sesionId > 0) {
+                $stmt->execute([$sesionId]);
+                error_log("Ejecutado con sesionId: " . $sesionId);
+            } else {
+                $stmt->execute();
+                error_log("Ejecutado SIN filtro de sesión");
+            }
+            
+            $resultado = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            error_log("Mociones encontradas: " . count($resultado));
+            
+            return $resultado;
             
         } catch (Exception $e) {
-            error_log("Error obteniendo todas las mociones: " . $e->getMessage());
+            error_log("EXCEPCIÓN en getTodasLasMociones: " . $e->getMessage());
+            error_log("Stack: " . $e->getTraceAsString());
             return [];
         }
     }
@@ -928,33 +958,53 @@ class Votacion extends Model {
         $this->ensureMocionesTable();
         
         try {
-            $whereClause = "WHERE m.sesion_id = ?";
+            $whereClause = "WHERE sesion_id = ?";
             $params = [$sesionId];
             
             if ($soloActivas) {
-                $whereClause .= " AND m.activa = 1";
+                $whereClause .= " AND activa = 1";
             }
             
+            // Query simplificada SIN JOIN y SIN alias
             $query = "
-                SELECT m.*, 
-                       m.texto as mensaje,
-                       m.fecha_creacion as created_at,
-                       COALESCE(u.name, m.autor_nombre) as usuario 
-                FROM mociones m 
-                LEFT JOIN users u ON m.usuario_id = u.id 
+                SELECT 
+                    id,
+                    sesion_id,
+                    usuario_id,
+                    tipo,
+                    texto as mensaje,
+                    autor_nombre as usuario,
+                    fecha_creacion as created_at,
+                    activa
+                FROM mociones 
                 {$whereClause}
-                ORDER BY m.fecha_creacion DESC
+                ORDER BY fecha_creacion DESC
             ";
             
             // Log para debug
-            error_log("Query getMocionesPorSesion: " . $query);
-            error_log("Parámetros: " . print_r($params, true));
+            error_log("=== getMocionesPorSesion Debug ===");
+            error_log("SesionId: " . $sesionId);
+            error_log("Solo activas: " . ($soloActivas ? 'SI' : 'NO'));
+            error_log("Query: " . str_replace("\n", " ", $query));
+            error_log("Parámetros: sesion_id=" . $sesionId);
             
             $stmt = $this->db->prepare($query);
             $stmt->execute($params);
             
             $resultado = $stmt->fetchAll(PDO::FETCH_ASSOC);
             error_log("Resultados encontrados: " . count($resultado));
+            
+            if (count($resultado) > 0) {
+                error_log("Primeros resultados: " . print_r(array_slice($resultado, 0, 2), true));
+            } else {
+                error_log("No se encontraron resultados - verificando si existen mociones en general...");
+                // Query para verificar si hay mociones en cualquier sesión
+                $queryCheck = "SELECT COUNT(*) as total, sesion_id, activa FROM mociones GROUP BY sesion_id, activa ORDER BY sesion_id";
+                $stmtCheck = $this->db->prepare($queryCheck);
+                $stmtCheck->execute();
+                $checkResults = $stmtCheck->fetchAll(PDO::FETCH_ASSOC);
+                error_log("Mociones por sesión y estado: " . print_r($checkResults, true));
+            }
             
             return $resultado;
             
@@ -969,9 +1019,14 @@ class Votacion extends Model {
         
         try {
             $query = "
-                SELECT m.*, 
+                SELECT m.id,
+                       m.sesion_id,
+                       m.usuario_id,
+                       m.tipo,
                        m.texto as mensaje,
+                       m.autor_nombre,
                        m.fecha_creacion as created_at,
+                       m.activa,
                        COALESCE(u.name, m.autor_nombre) as usuario 
                 FROM mociones m 
                 LEFT JOIN users u ON m.usuario_id = u.id 
@@ -1015,9 +1070,14 @@ class Votacion extends Model {
         
         try {
             $query = "
-                SELECT m.*, 
+                SELECT m.id,
+                       m.sesion_id,
+                       m.usuario_id,
+                       m.tipo,
                        m.texto as mensaje,
+                       m.autor_nombre,
                        m.fecha_creacion as created_at,
+                       m.activa,
                        COALESCE(u.name, m.autor_nombre) as usuario 
                 FROM mociones m 
                 LEFT JOIN users u ON m.usuario_id = u.id 
@@ -1050,6 +1110,106 @@ class Votacion extends Model {
         }
     }
 
+    // MÉTODO TEMPORAL PARA REACTIVAR TODAS LAS MOCIONES DE UNA SESIÓN
+    public function reactivarTodasMocionesSesion($sesionId) {
+        $this->ensureMocionesTable();
+        
+        try {
+            $query = "UPDATE mociones SET activa = 1 WHERE sesion_id = ? AND activa = 0";
+            $stmt = $this->db->prepare($query);
+            
+            if ($stmt->execute([$sesionId])) {
+                return $stmt->rowCount(); // Retorna el número de mociones reactivadas
+            }
+            
+            return 0;
+            
+        } catch (Exception $e) {
+            error_log("Error reactivando todas las mociones: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    // DEBUG TEMPORAL - Sistema funcionando correctamente
+    public function debugTablaMociones() {
+        $debug = [];
+        
+        try {
+            $debug['conexion_info'] = [
+                'dsn' => 'No disponible directamente',
+                'driver' => $this->db->getAttribute(PDO::ATTR_DRIVER_NAME),
+                'server_version' => $this->db->getAttribute(PDO::ATTR_SERVER_VERSION),
+                'connection_status' => $this->db->getAttribute(PDO::ATTR_CONNECTION_STATUS)
+            ];
+            
+            // Verificar tabla
+            $query = "SHOW TABLES LIKE 'mociones'";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute();
+            $debug['tabla_existe'] = $stmt->rowCount() > 0;
+            
+            // IMPORTANTE: Usar la MISMA conexión $this->db para todo
+            
+            // Test 1: Query directa simple
+            $query1 = "SELECT COUNT(*) as total FROM mociones";
+            $stmt1 = $this->db->prepare($query1);
+            $stmt1->execute();
+            $result1 = $stmt1->fetch(PDO::FETCH_ASSOC);
+            $debug['test1_count_simple'] = $result1;
+            
+            // Test 2: La misma query que está funcionando
+            $query2 = "SELECT 
+                        COUNT(*) as total,
+                        SUM(CASE WHEN activa = 1 THEN 1 ELSE 0 END) as activas,
+                        SUM(CASE WHEN activa = 0 THEN 1 ELSE 0 END) as inactivas
+                      FROM mociones";
+            $stmt2 = $this->db->prepare($query2);
+            $stmt2->execute();
+            $result2 = $stmt2->fetch(PDO::FETCH_ASSOC);
+            $debug['test2_count_detailed'] = $result2;
+            
+            // Test 3: Llamar a getTodasLasMociones desde AQUÍ MISMO
+            $debug['test3_getTodasLasMociones'] = $this->getTodasLasMociones(0);
+            
+            // Test 4: EXACTAMENTE la misma query que funciona en el debug original
+            $query4 = "SELECT 
+                        COUNT(*) as total,
+                        SUM(CASE WHEN activa = 1 THEN 1 ELSE 0 END) as activas,
+                        SUM(CASE WHEN activa = 0 THEN 1 ELSE 0 END) as inactivas
+                      FROM mociones";
+            $stmt4 = $this->db->prepare($query4);
+            $stmt4->execute();
+            $result4 = $stmt4->fetch(PDO::FETCH_ASSOC);
+            $debug['test4_exact_same_query'] = $result4;
+            
+            // Test 5: Obtener 3 mociones directamente
+            $query5 = "SELECT id, tipo, texto, autor_nombre, fecha_creacion, activa 
+                       FROM mociones 
+                       WHERE sesion_id = 14 AND activa = 1 
+                       ORDER BY fecha_creacion DESC LIMIT 3";
+            $stmt5 = $this->db->prepare($query5);
+            $stmt5->execute();
+            $debug['test5_sample_mociones'] = $stmt5->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Test 6: Comparar con getTodasLasMociones(14) específicamente
+            $debug['test6_getTodasLasMociones_sesion14'] = $this->getTodasLasMociones(14);
+            
+            // Info conexión
+            $debug['conexion_bd'] = [
+                'driver' => $this->db->getAttribute(PDO::ATTR_DRIVER_NAME),
+                'version' => $this->db->getAttribute(PDO::ATTR_SERVER_VERSION)
+            ];
+            
+            $debug['mensaje'] = 'Test1: ' . $result1['total'] . ' | Test2: Total=' . $result2['total'] . ', Activas=' . $result2['activas'] . ' | Test3: ' . count($debug['test3_getTodasLasMociones']);
+                
+        } catch (Exception $e) {
+            $debug['error'] = $e->getMessage();
+            $debug['trace'] = $e->getTraceAsString();
+        }
+        
+        return $debug;
+    }
+
     public function limpiarHistorialMociones($sesionId) {
         $this->ensureMocionesTable();
         
@@ -1069,5 +1229,6 @@ class Votacion extends Model {
             return 0;
         }
     }
+
 }
 ?>

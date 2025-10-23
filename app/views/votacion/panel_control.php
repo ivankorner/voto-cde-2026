@@ -140,6 +140,10 @@ ob_start();
                                 <button class="btn btn-secondary me-2" onclick="debugMociones()" data-bs-toggle="tooltip" title="Debug: Ver datos de mociones">
                                     <i class="bi bi-bug"></i> Debug
                                 </button>
+                                <button class="btn btn-success me-2" onclick="reactivarTodasMociones()" data-bs-toggle="tooltip" title="Reactivar todas las mociones (usar una sola vez)">
+                                    <i class="bi bi-arrow-up-circle"></i> Reactivar
+                                </button>
+
                                 <button class="btn btn-warning" onclick="limpiarHistorialMociones()" data-bs-toggle="tooltip" title="Limpia el historial de mociones antiguas">
                                     <i class="bi bi-trash"></i> Limpiar Historial
                                 </button>
@@ -333,9 +337,15 @@ const sesionId = <?= $sesion['id'] ?>;
 
 // Inicializar al cargar la página
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== Inicializando Panel de Control ===');
+    
+    // Inicializar auto-refresh de puntos
     iniciarAutoRefresh();
     
-    // Configurar auto-refresh
+    // Inicializar auto-refresh de mociones
+    iniciarAutoRefreshMociones();
+    
+    // Configurar auto-refresh de puntos
     document.getElementById('auto-refresh').addEventListener('change', function() {
         if (this.checked) {
             iniciarAutoRefresh();
@@ -343,6 +353,8 @@ document.addEventListener('DOMContentLoaded', function() {
             detenerAutoRefresh();
         }
     });
+    
+    console.log('Panel de Control Inicializado');
 });
 
 function iniciarAutoRefresh() {
@@ -653,7 +665,9 @@ function iniciarAutoRefreshMociones() {
 }
 
 function cargarMociones() {
-    console.log('Cargando mociones para sesión:', sesionId);
+    console.log('=== CARGANDO MOCIONES ===');
+    console.log('SesionId actual:', sesionId);
+    console.log('CSRF Token:', '<?= $_SESSION['csrf_token'] ?>');
     
     const formData = new FormData();
     formData.append('sesion_id', sesionId);
@@ -664,21 +678,35 @@ function cargarMociones() {
         body: formData
     })
     .then(response => {
-        console.log('Respuesta del servidor:', response.status);
+        console.log('Status de respuesta:', response.status);
         return response.json();
     })
     .then(data => {
-        console.log('Datos recibidos:', data);
+        console.log('=== RESPUESTA COMPLETA ===');
+        console.log('Data completa:', data);
+        
         if (data.success) {
-            console.log('Mociones activas:', data.mociones_activas.length);
-            console.log('Historial mociones:', data.historial_mociones.length);
+            console.log('=== ANÁLISIS DE MOCIONES ===');
+            console.log('Mociones activas encontradas:', data.mociones_activas.length);
+            console.log('Mociones activas detalle:', data.mociones_activas);
+            console.log('Historial mociones encontradas:', data.historial_mociones.length);
+            console.log('Historial mociones detalle:', data.historial_mociones);
+            
+            if (data.debug_info) {
+                console.log('=== INFO DEBUG ===');
+                console.log('Debug info:', data.debug_info);
+            }
+            
             actualizarTablaMociones(data.mociones_activas, data.historial_mociones);
         } else {
-            console.error('Error en respuesta:', data.error);
+            console.error('=== ERROR EN RESPUESTA ===');
+            console.error('Error:', data.error);
+            console.error('Debug adicional:', data.debug);
         }
     })
     .catch(error => {
-        console.error('Error cargando mociones:', error);
+        console.error('=== ERROR DE CONEXIÓN ===');
+        console.error('Error completo:', error);
     });
 }
 
@@ -908,43 +936,167 @@ function limpiarHistorialMociones() {
     });
 }
 
-// FUNCIÓN TEMPORAL PARA DEBUG - ELIMINAR EN PRODUCCIÓN
-function debugMociones() {
-    fetch('<?= BASE_URL ?>votacion/debug-mociones', {
-        method: 'GET'
+// FUNCIÓN PARA CREAR MOCIÓN DE PRUEBA
+function crearMocionTest() {
+    const formData = new FormData();
+    formData.append('sesion_id', sesionId);
+    formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
+    
+    // Usar fetch para simular envío de moción
+    fetch('<?= BASE_URL ?>votacion/enviar-mocion', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            sesion_id: sesionId,
+            tipo: 'orden',
+            texto: 'Moción de prueba - ' + new Date().toLocaleTimeString()
+        })
     })
     .then(response => response.json())
     .then(data => {
-        console.log('=== DEBUG MOCIONES ===');
-        console.log('Todas las mociones:', data.todas_las_mociones);
-        console.log('Estructura tabla:', data.estructura_tabla);
-        console.log('Count total:', data.count_total);
-        
-        // Mostrar en un alert para fácil visualización
-        Swal.fire({
-            title: 'Debug Mociones',
-            html: `
-                <div style="text-align: left;">
-                    <p><strong>Total mociones en DB:</strong> ${data.count_total}</p>
-                    <p><strong>Estructura tabla:</strong></p>
-                    <pre style="text-align: left; font-size: 12px;">${JSON.stringify(data.estructura_tabla, null, 2)}</pre>
-                    <p><strong>Últimas 10 mociones:</strong></p>
-                    <pre style="text-align: left; font-size: 11px; max-height: 200px; overflow-y: auto;">${JSON.stringify(data.todas_las_mociones, null, 2)}</pre>
-                </div>
-            `,
-            width: '800px',
-            confirmButtonText: 'Cerrar'
-        });
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Moción de Prueba Creada',
+                text: 'Se creó una moción de prueba correctamente',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            // Recargar mociones después de crear una nueva
+            setTimeout(() => cargarMociones(), 500);
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.error || 'Error al crear moción de prueba'
+            });
+        }
     })
     .catch(error => {
-        console.error('Error en debug:', error);
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error de conexión: ' + error.message
+        });
     });
 }
 
-// Inicializar el control de mociones cuando se carga la página
-document.addEventListener('DOMContentLoaded', function() {
-    iniciarAutoRefreshMociones();
-});
+// FUNCIÓN TEMPORAL PARA REACTIVAR TODAS LAS MOCIONES
+function reactivarTodasMociones() {
+    Swal.fire({
+        title: '¿Reactivar todas las mociones?',
+        text: 'Esto marcará como activas todas las mociones de la sesión 14',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, reactivar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('<?= BASE_URL ?>votacion/reactivar-todas-mociones', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('=== RESPUESTA REACTIVAR MOCIONES ===');
+                console.log(data);
+                
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Mociones Reactivadas',
+                        text: data.mensaje,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    // Recargar mociones
+                    setTimeout(() => cargarMociones(), 500);
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.error || 'Error desconocido'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'Error: ' + error.message
+                });
+            });
+        }
+    });
+}
+
+// FUNCIÓN TEMPORAL PARA DEBUG - ELIMINAR EN PRODUCCIÓN
+function debugMociones() {
+    fetch('<?= BASE_URL ?>votacion/debug-mociones', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('=== DEBUG MOCIONES COMPLETO ===');
+        console.log(data);
+        
+        if (data.success && data.debug_completo) {
+            const debug = data.debug_completo;
+            
+            Swal.fire({
+                icon: 'info',
+                title: 'Debug Mociones - Diagnóstico Completo',
+                html: `
+                    <div class="text-start">
+                        <h6>📊 Información General</h6>
+                        <p><strong>Sesión actual:</strong> ${sesionId}</p>
+                        <p><strong>Total mociones en DB:</strong> ${debug.test1_count_simple ? debug.test1_count_simple.total : 0}</p>
+                        <p><strong>Mociones recuperadas:</strong> ${debug.test3_getTodasLasMociones ? debug.test3_getTodasLasMociones.length : 0}</p>
+                        
+                        <h6>�️ Estado de la Tabla</h6>
+                        <p><strong>Tabla existe:</strong> ${debug.tabla_existe ? 'Sí' : 'No'}</p>
+                        <p><strong>Estructura OK:</strong> ${debug.estructura_tabla ? 'Sí' : 'No'}</p>
+                        
+                        <h6>🎯 Mociones de la Sesión Actual (${sesionId})</h6>
+                        <pre style="font-size: 11px; max-height: 200px; overflow-y: auto;">${JSON.stringify(debug.test6_getTodasLasMociones_sesion14 || [], null, 2)}</pre>
+                        
+                        <h6>� Diagnóstico</h6>
+                        <p style="color: ${debug.test1_count_simple && debug.test1_count_simple.total > 0 ? 'green' : 'red'};">${debug.mensaje || 'Sin información'}</p>
+                        
+                        <h6>� Info Técnica</h6>
+                        <p><strong>BD Driver:</strong> ${debug.conexion_bd ? debug.conexion_bd.driver : 'N/A'}</p>
+                        <p><strong>Versión BD:</strong> ${debug.conexion_bd ? debug.conexion_bd.version : 'N/A'}</p>
+                        
+                        ${debug.error ? `<h6 style="color: red;">❌ Error</h6><p style="color: red;">${debug.error}</p>` : ''}
+                    </div>
+                `,
+                width: 900,
+                showConfirmButton: true,
+                confirmButtonText: 'Cerrar'
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error en Debug',
+                text: data.error || 'Error desconocido'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error en debug:', error);
+        Swal.fire({
+            icon: 'error', 
+            title: 'Error de conexión',
+            text: 'Error: ' + error.message
+        });
+    });
+}
 
 // Detener auto-refresh de mociones al salir
 window.addEventListener('beforeunload', function() {

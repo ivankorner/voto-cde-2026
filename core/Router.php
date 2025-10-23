@@ -277,6 +277,16 @@ class Router {
                 }
                 break;
                 
+            case 'reactivar-todas-mociones':
+                if (method_exists($controller, 'reactivarTodasMociones')) {
+                    $controller->reactivarTodasMociones();
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
+
+                
             case 'inicializar-puntos':
                 if ($id && method_exists($controller, 'inicializarPuntos')) {
                     $controller->inicializarPuntos($id);
