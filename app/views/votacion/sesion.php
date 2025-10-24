@@ -183,17 +183,6 @@ ob_start();
                     </small>
                 </div>
                 <?php endif; ?>
-                <!-- Controles de Moción para Editores -->
-                <div class="mt-3">
-                    <button class="btn btn-warning btn-sm w-100 mb-2" id="btnMocion" onclick="abrirModalMocion()">
-                        <i class="bi bi-megaphone"></i>
-                        Solicitar Moción
-                    </button>
-                    <button class="btn btn-outline-warning btn-sm w-100" onclick="abrirPanelMociones()">
-                        <i class="bi bi-list-ul"></i>
-                        Ver Historial de Mociones
-                    </button>
-                </div>
             </div>
         </div>
         <?php endif; ?>
@@ -209,16 +198,30 @@ ob_start();
             <div class="card-body">
                 <p class="text-muted mb-3 small">
                     <i class="bi bi-info-circle"></i>
-                    Revise las mociones y comunicaciones realizadas durante la sesión.
-                    <br><small class="text-warning">
+                    Gestione las mociones y comunicaciones realizadas durante la sesión.
+                </p>
+                
+                <!-- Botones de Moción -->
+                <div class="d-grid gap-2">
+                    <?php if ($_SESSION['user_role'] === 'editor'): ?>
+                    <button class="btn btn-warning btn-sm" id="btnMocion" onclick="abrirModalMocion()">
+                        <i class="bi bi-megaphone"></i>
+                        Solicitar Moción
+                    </button>
+                    <?php endif; ?>
+                    
+                    <button class="btn btn-outline-info btn-sm" onclick="abrirPanelMociones()">
+                        <i class="bi bi-list-ul"></i>
+                        Ver Historial de Mociones
+                    </button>
+                </div>
+                
+                <div class="mt-3">
+                    <small class="text-warning">
                         <i class="bi bi-stop-circle"></i>
                         Puede detener alertas de mociones usando el botón "Parar" en el historial.
                     </small>
-                </p>
-                <button class="btn btn-outline-info btn-sm w-100" onclick="abrirPanelMociones()">
-                    <i class="bi bi-list-ul"></i>
-                    Ver Historial de Mociones
-                </button>
+                </div>
             </div>
         </div>
     </div>
