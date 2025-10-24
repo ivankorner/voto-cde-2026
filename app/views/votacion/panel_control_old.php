@@ -502,6 +502,18 @@ function habilitarPunto(puntoId) {
     });
 }
 
+// Detener auto-refresh de mociones al salir
+window.addEventListener('beforeunload', function() {
+    if (intervalMociones) clearInterval(intervalMociones);
+});
+</script>
+
+<?php 
+// Cerrar el buffer y renderizar dentro del layout principal
+$content = ob_get_clean();
+include VIEWS_PATH . 'layouts/main.php';
+?>
+
 function deshabilitarPunto(puntoId) {
     Swal.fire({
         title: '¿Deshabilitar punto?',
@@ -858,29 +870,19 @@ function handleMocionAction(button) {
 }
 
 function pararMocionIndividual(mocionId) {
-    console.log('=== PARAR MOCIÓN INDIVIDUAL ===');
-    console.log('Moción ID recibido:', mocionId);
-    console.log('Tipo de mocionId:', typeof mocionId);
-    
-    if (!mocionId) {
-        console.error('ERROR: mocionId está vacío o undefined');
-        return;
-    }
-    
-    console.log('Validación pasada, mocionId es válido');
-    console.log('Iniciando SweetAlert...');
-    console.log('Verificando disponibilidad de Swal:', typeof Swal);
-    
-    if (typeof Swal === 'undefined') {
-        console.error('ERROR: SweetAlert2 no está cargado');
-        alert('Error: SweetAlert2 no está disponible. Por favor recarga la página.');
-        return;
-    }
-    
-    console.log('Swal disponible, llamando a Swal.fire()...');
-    
     try {
-        const swalPromise = Swal.fire({
+        console.log('=== PARAR MOCIÓN INDIVIDUAL ===');
+        console.log('Moción ID:', mocionId);
+        console.log('Tipo de mocionId:', typeof mocionId);
+        
+        if (!mocionId) {
+            console.error('ERROR: mocionId está vacío o undefined');
+            return;
+        }
+        
+        console.log('Iniciando SweetAlert...');
+        
+        Swal.fire({
             title: '¿Parar esta moción?',
             text: 'Esta moción dejará de mostrarse a los usuarios',
             icon: 'warning',
@@ -889,40 +891,19 @@ function pararMocionIndividual(mocionId) {
             cancelButtonColor: '#6c757d',
             confirmButtonText: 'Sí, parar',
             cancelButtonText: 'Cancelar'
-        });
-        
-        console.log('Swal.fire() llamado, promesa creada:', swalPromise);
-        
-        swalPromise.then((result) => {
-            console.log('Resultado del diálogo:', result);
-            
+        }).then((result) => {
             if (result.isConfirmed) {
-                console.log('Usuario confirmó parar la moción');
-                console.log('Preparando petición para moción ID:', mocionId);
-                
-                const requestData = {
-                    mocion_id: mocionId,
-                    sesion_id: sesionId
-                };
-                
-                console.log('Datos JSON preparados:', requestData);
-                console.log('Enviando petición a:', '<?= BASE_URL ?>votacion/parar-mocion');
+                const formData = new FormData();
+                formData.append('mocion_id', mocionId);
+                formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
                 
                 fetch('<?= BASE_URL ?>votacion/parar-mocion', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(requestData)
+                    body: formData
                 })
-                .then(response => {
-                    console.log('Respuesta recibida:', response.status, response.statusText);
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
-                    console.log('Data de respuesta:', data);
                     if (data.success) {
-                        console.log('Moción parada exitosamente, recargando mociones...');
                         cargarMociones();
                         Swal.fire({
                             icon: 'success',
@@ -930,30 +911,16 @@ function pararMocionIndividual(mocionId) {
                             timer: 1500,
                             showConfirmButton: false
                         });
-                    } else {
-                        console.error('Error en la respuesta del servidor:', data);
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: data.message || 'Error al parar la moción'
-                        });
                     }
                 })
                 .catch(error => {
-                    console.error('Error en la petición:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error de conexión',
-                        text: 'No se pudo conectar con el servidor'
-                    });
+                    console.error('Error:', error);
                 });
-            } else {
-                console.log('Usuario canceló la acción');
             }
         });
     } catch (error) {
-        console.error('ERROR en Swal.fire():', error);
-        console.error('Stack:', error.stack);
+        console.error('ERROR en pararMocionIndividual:', error);
+        console.error('Stack trace:', error.stack);
     }
 }
 
@@ -1033,6 +1000,32 @@ function limpiarHistorialMociones() {
         }
     });
 }
+
+
+                        
+                        <h6>�️ Estado de la Tabla</h6>
+                        <p><strong>Tabla existe:</strong> ${debug.tabla_existe ? 'Sí' : 'No'}</p>
+                        <p><strong>Estructura OK:</strong> ${debug.estructura_tabla ? 'Sí' : 'No'}</p>
+                        
+                        <h6>🎯 Mociones de la Sesión Actual (${sesionId})</h6>
+                        <pre style="font-size: 11px; max-height: 200px; overflow-y: auto;">${JSON.stringify(debug.test6_getTodasLasMociones_sesion14 || [], null, 2)}</pre>
+                        
+                        <h6>� Diagnóstico</h6>
+                        <p style="color: ${debug.test1_count_simple && debug.test1_count_simple.total > 0 ? 'green' : 'red'};">${debug.mensaje || 'Sin información'}</p>
+                        
+                        <h6>� Info Técnica</h6>
+                        <p><strong>BD Driver:</strong> ${debug.conexion_bd ? debug.conexion_bd.driver : 'N/A'}</p>
+                        <p><strong>Versión BD:</strong> ${debug.conexion_bd ? debug.conexion_bd.version : 'N/A'}</p>
+                        
+                        ${debug.error ? `<h6 style="color: red;">❌ Error</h6><p style="color: red;">${debug.error}</p>` : ''}
+                    </div>
+                `,
+                width: 900,
+                showConfirmButton: true,
+                confirmButtonText: 'Cerrar'
+            });
+
+
 
 // Detener auto-refresh de mociones al salir
 window.addEventListener('beforeunload', function() {
