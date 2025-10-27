@@ -77,10 +77,17 @@ ob_start();
             <div class="card-body">
                 <?php if ($puede_votar): ?>
                 <div class="mb-3">
+                    <?php if ($usuario_ya_presente): ?>
+                    <button id="btn-presencia" class="btn btn-secondary btn-sm w-100" disabled data-bs-toggle="tooltip" title="Ya has registrado tu presencia en esta sesión">
+                        <i class="bi bi-person-check-fill"></i>
+                        Ya Estás Presente
+                    </button>
+                    <?php else: ?>
                     <button id="btn-presencia" class="btn btn-success btn-sm w-100" onclick="marcarPresencia()" data-bs-toggle="tooltip" title="Registra tu asistencia para poder votar">
                         <i class="bi bi-person-check"></i>
                         Marcar Presencia
                     </button>
+                    <?php endif; ?>
                 </div>
                 <?php endif; ?>
                 
@@ -511,6 +518,12 @@ const CSRF_TOKEN = '<?= $_SESSION['csrf_token'] ?? '' ?>';
 // Marcar presencia
 function marcarPresencia() {
     const btn = document.getElementById('btn-presencia');
+    
+    // Verificar si ya está deshabilitado o ya está procesando
+    if (btn.disabled) {
+        return;
+    }
+    
     const originalText = btn.innerHTML;
     
     btn.disabled = true;
@@ -541,8 +554,10 @@ function marcarPresencia() {
             SweetAlerts.success('¡Presencia registrada!', 'Ahora puede participar en las votaciones');
             btn.classList.remove('btn-success');
             btn.classList.add('btn-secondary');
-            btn.innerHTML = '<i class="bi bi-person-check-fill"></i> Presente';
+            btn.innerHTML = '<i class="bi bi-person-check-fill"></i> Ya Estás Presente';
             btn.disabled = true;
+            btn.title = 'Ya has registrado tu presencia en esta sesión';
+            btn.onclick = null; // Remover el evento onclick
             
             // Actualizar contador de presentes
             document.getElementById('total-presentes').innerHTML = `<i class="bi bi-people"></i> ${data.total_presentes}`;

@@ -118,6 +118,9 @@ class VotacionController extends Controller {
         // Verificar si es editor para poder votar
         $puedeVotar = $votacionModel->puedeVotar($_SESSION['user_id']);
         
+        // Verificar si el usuario ya está presente en la sesión
+        $usuarioYaPresente = $votacionModel->usuarioEstaPresente($id, $_SESSION['user_id']);
+        
         // Obtener datos de la sesión
         $presentes = $votacionModel->getPresentesSesion($id);
         $estadisticas = $votacionModel->getEstadisticasSesion($id);
@@ -185,6 +188,7 @@ class VotacionController extends Controller {
             'items' => $items,
             'actas_item' => $actasItem,
             'puede_votar' => $puedeVotar,
+            'usuario_ya_presente' => $usuarioYaPresente,
             'es_admin' => $_SESSION['user_role'] === 'admin',
             'puntos_habilitados' => $puntosHabilitados,
             'total_puntos' => count($votacionModel->getPuntosOrdenDia($id, false)),
@@ -216,6 +220,12 @@ class VotacionController extends Controller {
                 return;
             }
             
+            // Verificar si el usuario ya está presente
+            if ($votacionModel->usuarioEstaPresente($sesionId, $_SESSION['user_id'])) {
+                $this->sendJSON(['success' => false, 'message' => 'Ya has registrado tu presencia en esta sesión']);
+                return;
+            }
+            
             $presente = isset($_POST['presente']) ? (bool)$_POST['presente'] : true;
             
             if ($presente) {
@@ -228,9 +238,10 @@ class VotacionController extends Controller {
                 $presentes = $votacionModel->getPresentesSesion($sesionId);
                 $this->sendJSON([
                     'success' => true, 
-                    'message' => $presente ? 'Presencia registrada' : 'Salida registrada',
+                    'message' => $presente ? 'Presencia registrada exitosamente' : 'Salida registrada',
                     'presentes' => $presentes,
-                    'total_presentes' => count($presentes)
+                    'total_presentes' => count($presentes),
+                    'ya_presente' => true // Indicar que ahora está presente
                 ]);
             } else {
                 $this->sendJSON(['success' => false, 'message' => 'Error al registrar presencia']);

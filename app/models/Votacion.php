@@ -149,6 +149,19 @@ class Votacion extends Model {
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result['total'];
     }
+    
+    public function usuarioEstaPresente($sesionId, $userId) {
+        $this->ensurePresentesTable();
+        $query = "SELECT presente FROM presentes_sesion 
+                  WHERE sesion_id = ? AND user_id = ? 
+                  LIMIT 1";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$sesionId, $userId]);
+        
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result ? (bool)$result['presente'] : false;
+    }
 
     private function ensurePresentesTable() {
         try {
