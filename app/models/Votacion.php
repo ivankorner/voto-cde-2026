@@ -10,14 +10,18 @@ class Votacion extends Model {
     // ============================================
     
     public function crearSesion($data) {
+        // Asegurar que la columna orden_dia_id exista
+        $this->ensureOrdenDiaIdColumn();
+        
         $query = "INSERT INTO {$this->table} 
-                  (nombre, descripcion, created_by, created_at) 
-                  VALUES (?, ?, ?, NOW())";
+                  (nombre, descripcion, orden_dia_id, created_by, created_at) 
+                  VALUES (?, ?, ?, ?, NOW())";
         
         $stmt = $this->db->prepare($query);
         $success = $stmt->execute([
             $data['nombre'] ?? $data['nombre_sesion'] ?? '',
             $data['descripcion'] ?? '',
+            $data['orden_dia_id'] ?? null,
             $data['created_by']
         ]);
         
@@ -121,11 +125,13 @@ class Votacion extends Model {
     
     public function getPresentesSesion($sesionId) {
         $this->ensurePresentesTable();
-        $query = "SELECT ps.*, u.username, u.first_name, u.last_name, r.name as role_name
+        $this->ensurePuestoColumn();
+        $query = "SELECT ps.*, u.username, u.first_name, u.last_name, u.puesto, r.name as role_name
                   FROM presentes_sesion ps
                   JOIN users u ON ps.user_id = u.id
                   LEFT JOIN roles r ON u.role_id = r.id
                   WHERE ps.sesion_id = ? AND ps.presente = 1
+                  AND TRIM(COALESCE(u.puesto, '')) IN ('Presidente', 'Vice Presidente', 'Concejal')
                   ORDER BY u.first_name, u.last_name";
         
         $stmt = $this->db->prepare($query);
@@ -136,12 +142,13 @@ class Votacion extends Model {
     
     public function getTotalPresentes($sesionId) {
         $this->ensurePresentesTable();
+        $this->ensurePuestoColumn();
         $query = "SELECT COUNT(*) as total 
                   FROM presentes_sesion ps
                   JOIN users u ON ps.user_id = u.id
                   LEFT JOIN roles r ON u.role_id = r.id
                   WHERE ps.sesion_id = ? AND ps.presente = 1 
-                  AND r.name = 'editor'"; // Solo editores pueden votar
+                  AND TRIM(COALESCE(u.puesto, '')) IN ('Presidente', 'Vice Presidente', 'Concejal')";
         
         $stmt = $this->db->prepare($query);
         $stmt->execute([$sesionId]);
@@ -207,6 +214,34 @@ class Votacion extends Model {
                         INDEX idx_orden (orden_punto)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
             $this->db->exec($sql);
+        }
+    }
+
+    private function ensureOrdenDiaIdColumn() {
+        try {
+            $this->db->query("SELECT orden_dia_id FROM {$this->table} LIMIT 1");
+        } catch (Exception $e) {
+            // Agregar columna si no existe
+            $sql = "ALTER TABLE {$this->table} ADD COLUMN orden_dia_id INT NULL AFTER descripcion";
+            try {
+                $this->db->exec($sql);
+            } catch (Exception $e) {
+                // La columna ya existe o hay otro error, continuar
+            }
+        }
+    }
+
+    private function ensurePuestoColumn() {
+        try {
+            $this->db->query("SELECT puesto FROM users LIMIT 1");
+        } catch (Exception $e) {
+            // Agregar columna si no existe
+            $sql = "ALTER TABLE users ADD COLUMN puesto VARCHAR(50) NULL AFTER last_name";
+            try {
+                $this->db->exec($sql);
+            } catch (Exception $e) {
+                // La columna ya existe o hay otro error, continuar
+            }
         }
     }
     
@@ -538,32 +573,38 @@ class Votacion extends Model {
     // ============================================
     
     public function inicializarPuntosSesion($sesionId) {
-        // Asegurar que la tabla existe
+        // Asegurar que las tablas y columnas existan
         $this->ensurePuntosHabilitadosTable();
+        $this->ensureOrdenDiaIdColumn();
         
-        // Obtener todos los expedientes del orden del día de la sesión
-        $query = "SELECT sv.id as sesion_id
+        // Obtener la sesión con su orden del día
+        $query = "SELECT sv.id as sesion_id, sv.orden_dia_id
                   FROM sesiones_votacion sv
                   WHERE sv.id = ?";
         
         $stmt = $this->db->prepare($query);
         $stmt->execute([$sesionId]);
-        $ordenDia = $stmt->fetch(PDO::FETCH_ASSOC);
+        $sesion = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$ordenDia) {
+        if (!$sesion) {
             return false;
         }
         
-        // Obtener expedientes asociados
-        $queryExpedientes = "SELECT ode.id, ode.numero_expediente, ode.extracto
-                            FROM orden_dia_expedientes ode
-                            JOIN orden_dia_items odi ON ode.orden_dia_item_id = odi.id
-                            WHERE odi.orden_dia_id = ?
-                            ORDER BY ode.numero_expediente";
+        $expedientes = [];
         
-        $stmt = $this->db->prepare($queryExpedientes);
-        $stmt->execute([$ordenDia['orden_dia_id']]);
-        $expedientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Solo obtener expedientes si hay un orden del día asociado
+        if ($sesion['orden_dia_id']) {
+            // Obtener expedientes asociados al orden del día
+            $queryExpedientes = "SELECT ode.id, ode.numero_expediente, ode.extracto
+                                FROM orden_dia_expedientes ode
+                                JOIN orden_dia_items odi ON ode.orden_dia_item_id = odi.id
+                                WHERE odi.orden_dia_id = ?
+                                ORDER BY ode.numero_expediente";
+            
+            $stmt = $this->db->prepare($queryExpedientes);
+            $stmt->execute([$sesion['orden_dia_id']]);
+            $expedientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
         
         // Insertar puntos en la tabla de control
         $insertQuery = "INSERT INTO puntos_habilitados 
@@ -575,7 +616,7 @@ class Votacion extends Model {
         
         $stmt = $this->db->prepare($insertQuery);
         
-        // Insertar punto global (apertura de sesión)
+        // Insertar punto global (apertura de sesión) - item_id puede ser NULL
         $stmt->execute([$sesionId, 'global', null, 'Apertura de Sesión', 'Llamado a lista y verificación de quórum', 1, 0]);
         
         $orden = 2;
@@ -591,7 +632,7 @@ class Votacion extends Model {
             ]);
         }
         
-        // Punto de cierre
+        // Punto de cierre - item_id puede ser NULL
         $stmt->execute([$sesionId, 'global', null, 'Cierre de Sesión', 'Cierre de la sesión y próximos pasos', $orden, 0]);
         
         return true;
@@ -690,16 +731,21 @@ class Votacion extends Model {
     }
     
     public function getMiembrosPresentes($sesionId) {
-        // Por ahora, devolver todos los usuarios con rol 'editor' como presentes
-        // TODO: Implementar sistema de asistencia real
-        $query = "SELECT u.id as user_id, u.first_name, u.last_name, r.name as role_name
-                  FROM users u
+        // Obtener usuarios que están marcados como presentes en esta sesión
+        // Solo incluir usuarios con puestos: Presidente, Vice Presidente o Concejal
+        $this->ensurePresentesTable();
+        $this->ensurePuestoColumn();
+        
+        $query = "SELECT u.id as user_id, u.first_name, u.last_name, u.puesto, r.name as role_name
+                  FROM presentes_sesion ps
+                  JOIN users u ON ps.user_id = u.id
                   JOIN roles r ON u.role_id = r.id
-                  WHERE r.name = 'editor'
+                  WHERE ps.sesion_id = ? AND ps.presente = 1
+                  AND TRIM(COALESCE(u.puesto, '')) IN ('Presidente', 'Vice Presidente', 'Concejal')
                   ORDER BY u.last_name, u.first_name";
         
         $stmt = $this->db->prepare($query);
-        $stmt->execute();
+        $stmt->execute([$sesionId]);
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

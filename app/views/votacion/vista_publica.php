@@ -1902,49 +1902,42 @@
                                     
                                     $maxMiembros = 7;
                                     
-                                    // Reorganizar miembros para priorizar Presidente y Vice Presidente en posición #1
+                                    // Reorganizar miembros: Presidente/Vice en posición #1, solo Concejales en el resto
                                     $miembrosOrganizados = [];
                                     $presidente = null;
                                     $vicePresidente = null;
-                                    $otrosMiembros = [];
+                                    $concejales = [];
                                     
                                     // Separar miembros por puesto
                                     if (!empty($miembros_presentes)) {
                                         foreach ($miembros_presentes as $miembro) {
-                                            if (isset($miembro['puesto'])) {
-                                                if ($miembro['puesto'] === 'Presidente') {
+                                            if (isset($miembro['puesto']) && !empty(trim($miembro['puesto']))) {
+                                                $puestoLimpio = trim($miembro['puesto']);
+                                                if ($puestoLimpio === 'Presidente') {
                                                     $presidente = $miembro;
-                                                } elseif ($miembro['puesto'] === 'Vice Presidente') {
+                                                } elseif ($puestoLimpio === 'Vice Presidente') {
                                                     $vicePresidente = $miembro;
-                                                } else {
-                                                    $otrosMiembros[] = $miembro;
+                                                } elseif ($puestoLimpio === 'Concejal') {
+                                                    $concejales[] = $miembro;
                                                 }
-                                            } else {
-                                                $otrosMiembros[] = $miembro;
+                                                // Los demás puestos (Secretario, Pro Secretario, etc.) NO se muestran
                                             }
                                         }
                                     }
                                     
-                                    // Asignar posición #1 (presidencial)
+                                    // Asignar posición #1 (presidencial) - SOLO Presidente o Vice Presidente
                                     if ($presidente) {
                                         $miembrosOrganizados[0] = $presidente; // Presidente en posición #1
                                     } elseif ($vicePresidente) {
                                         $miembrosOrganizados[0] = $vicePresidente; // Vice Presidente en posición #1 si no hay Presidente
                                     }
                                     
-                                    // Llenar las demás posiciones con otros miembros
+                                    // Llenar las demás posiciones SOLO con Concejales
                                     $posicionActual = 1; // Empezar desde posición #2
                                     
-                                    // Agregar Vice Presidente en posición #2 si el Presidente está en #1
-                                    if ($presidente && $vicePresidente && $posicionActual < $maxMiembros) {
-                                        $miembrosOrganizados[$posicionActual] = $vicePresidente;
-                                        $posicionActual++;
-                                    }
-                                    
-                                    // Agregar otros miembros en las posiciones restantes
-                                    foreach ($otrosMiembros as $miembro) {
+                                    foreach ($concejales as $concejal) {
                                         if ($posicionActual < $maxMiembros) {
-                                            $miembrosOrganizados[$posicionActual] = $miembro;
+                                            $miembrosOrganizados[$posicionActual] = $concejal;
                                             $posicionActual++;
                                         }
                                     }
@@ -1969,7 +1962,7 @@
                                             $estilosPosicion .= " bottom: {$posicion['bottom']};";
                                         }
                                     ?>
-                                    <div class="miembro-hemiciclo <?= $claseEstado ?> <?= $posicionNumero === 1 ? 'presidente' : '' ?>" 
+                                    <div class="miembro-hemiciclo <?= $claseEstado ?> <?= $posicionNumero === 1 ? 'Presidente' : '' ?>" 
                                          style="<?= $estilosPosicion ?>"
                                          data-miembro-id="<?= $miembro ? $miembro['id'] : 'vacio-' . $i ?>"
                                          data-posicion="<?= $posicionNumero ?>">
@@ -1992,7 +1985,7 @@
                                             <?php endif; ?>
                                             <?php if ($rol): ?>
                                             <div class="tooltip-role">
-                                               
+                                                <small><i class="bi bi-person-badge me-1"></i><?= $puesto ? $puesto : $rol ?></small>
                                             </div>
                                             <?php endif; ?>
                                             <div class="tooltip-status">
@@ -2028,12 +2021,12 @@
                                         <div class="leyenda-item">
                                             <div class="leyenda-dot presente"></div>
                                             <span>Presente</span>
-                                            <small class="count-badge"><?= count($miembros_presentes) ?></small>
+                                            <small class="count-badge"><?= count(array_filter($miembrosOrganizados)) ?></small>
                                         </div>
                                         <div class="leyenda-item">
                                             <div class="leyenda-dot ausente"></div>
                                             <span>Ausente</span>
-                                            <small class="count-badge"><?= max(0, 7 - count($miembros_presentes)) ?></small>
+                                            <small class="count-badge"><?= max(0, 7 - count(array_filter($miembrosOrganizados))) ?></small>
                                         </div>
                                     </div>
                                 </div>
@@ -2455,43 +2448,36 @@
                 const miembrosOrganizados = [];
                 let presidente = null;
                 let vicePresidente = null;
-                const otrosMiembros = [];
+                const concejales = [];
                 
                 // Separar miembros por puesto
                 miembros.forEach(miembro => {
-                    if (miembro.puesto) {
-                        if (miembro.puesto === 'Presidente') {
+                    if (miembro.puesto && miembro.puesto.trim()) {
+                        const puestoLimpio = miembro.puesto.trim();
+                        if (puestoLimpio === 'Presidente') {
                             presidente = miembro;
-                        } else if (miembro.puesto === 'Vice Presidente') {
+                        } else if (puestoLimpio === 'Vice Presidente') {
                             vicePresidente = miembro;
-                        } else {
-                            otrosMiembros.push(miembro);
+                        } else if (puestoLimpio === 'Concejal') {
+                            concejales.push(miembro);
                         }
-                    } else {
-                        otrosMiembros.push(miembro);
+                        // Los demás puestos (Secretario, Pro Secretario, etc.) NO se muestran
                     }
                 });
                 
-                // Asignar posición #1 (presidencial)
+                // Asignar posición #1 (presidencial) - SOLO Presidente o Vice Presidente
                 if (presidente) {
                     miembrosOrganizados[0] = presidente; // Presidente en posición #1
                 } else if (vicePresidente) {
                     miembrosOrganizados[0] = vicePresidente; // Vice Presidente en posición #1 si no hay Presidente
                 }
                 
-                // Llenar las demás posiciones con otros miembros
+                // Llenar las demás posiciones SOLO con Concejales
                 let posicionActual = 1; // Empezar desde posición #2
                 
-                // Agregar Vice Presidente en posición #2 si el Presidente está en #1
-                if (presidente && vicePresidente && posicionActual < maxMiembros) {
-                    miembrosOrganizados[posicionActual] = vicePresidente;
-                    posicionActual++;
-                }
-                
-                // Agregar otros miembros en las posiciones restantes
-                otrosMiembros.forEach(miembro => {
+                concejales.forEach(concejal => {
                     if (posicionActual < maxMiembros) {
-                        miembrosOrganizados[posicionActual] = miembro;
+                        miembrosOrganizados[posicionActual] = concejal;
                         posicionActual++;
                     }
                 });
@@ -2545,7 +2531,7 @@
                                     <span class="posicion-badge">#${posicionNumero}</span>
                                 </div>
                                 ${puesto ? '<div class="tooltip-puesto"><small><i class="bi bi-award me-1"></i>' + puesto + '</small></div>' : ''}
-                                ${rol ? '<div class="tooltip-role"><small><i class="bi bi-briefcase me-1"></i>' + rol + '</small></div>' : ''}
+                                ${rol ? '<div class="tooltip-role"><small><i class="bi bi-person-badge me-1"></i>' + (puesto || rol) + '</small></div>' : ''}
                                 <div class="tooltip-status">
                                     <small class="${miembro ? 'text-success' : 'text-muted'}">
                                         <i class="bi ${miembro ? 'bi-circle-fill' : 'bi-circle'} me-1"></i>
@@ -2610,19 +2596,19 @@
                                     <div class="leyenda-item">
                                         <div class="leyenda-dot presente"></div>
                                         <span>Presente</span>
-                                        <small class="count-badge">${miembros.length}</small>
+                                        <small class="count-badge">${miembrosOrganizados.filter(m => m).length}</small>
                                     </div>
                                     <div class="leyenda-item">
                                         <div class="leyenda-dot ausente"></div>
                                         <span>Ausente</span>
-                                        <small class="count-badge">${Math.max(0, maxMiembros - miembros.length)}</small>
+                                        <small class="count-badge">${Math.max(0, maxMiembros - miembrosOrganizados.filter(m => m).length)}</small>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    ${miembros.length > maxMiembros ? `
+                    ${(presidente ? 1 : 0) + (vicePresidente ? 1 : 0) + concejales.length > maxMiembros ? `
                         <div class="hemiciclo-info mt-4">
                             <div class="info-card">
                                 <div class="info-content">
@@ -2662,7 +2648,7 @@
                         </div>
                     </div>
                     
-                    ${miembros.length > maxMiembros ? `
+                    ${(presidente ? 1 : 0) + (vicePresidente ? 1 : 0) + concejales.length > maxMiembros ? `
                         <div class="hemiciclo-info mt-4">
                             <div class="info-card">
                                 <div class="info-content">
@@ -2671,7 +2657,7 @@
                                 </div>
                                 <div class="info-stats">
                                     <span class="badge bg-light text-dark">
-                                        Total: <strong>${miembros.length}</strong> presentes
+                                        Total: <strong>${(presidente ? 1 : 0) + (vicePresidente ? 1 : 0) + concejales.length}</strong> presentes
                                     </span>
                                 </div>
                             </div>
