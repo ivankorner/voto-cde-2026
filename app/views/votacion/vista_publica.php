@@ -1901,10 +1901,56 @@
                                     ];
                                     
                                     $maxMiembros = 7;
-                                    $miembrosActuales = !empty($miembros_presentes) ? array_slice($miembros_presentes, 0, $maxMiembros) : [];
+                                    
+                                    // Reorganizar miembros para priorizar Presidente y Vice Presidente en posición #1
+                                    $miembrosOrganizados = [];
+                                    $presidente = null;
+                                    $vicePresidente = null;
+                                    $otrosMiembros = [];
+                                    
+                                    // Separar miembros por puesto
+                                    if (!empty($miembros_presentes)) {
+                                        foreach ($miembros_presentes as $miembro) {
+                                            if (isset($miembro['puesto'])) {
+                                                if ($miembro['puesto'] === 'Presidente') {
+                                                    $presidente = $miembro;
+                                                } elseif ($miembro['puesto'] === 'Vice Presidente') {
+                                                    $vicePresidente = $miembro;
+                                                } else {
+                                                    $otrosMiembros[] = $miembro;
+                                                }
+                                            } else {
+                                                $otrosMiembros[] = $miembro;
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Asignar posición #1 (presidencial)
+                                    if ($presidente) {
+                                        $miembrosOrganizados[0] = $presidente; // Presidente en posición #1
+                                    } elseif ($vicePresidente) {
+                                        $miembrosOrganizados[0] = $vicePresidente; // Vice Presidente en posición #1 si no hay Presidente
+                                    }
+                                    
+                                    // Llenar las demás posiciones con otros miembros
+                                    $posicionActual = 1; // Empezar desde posición #2
+                                    
+                                    // Agregar Vice Presidente en posición #2 si el Presidente está en #1
+                                    if ($presidente && $vicePresidente && $posicionActual < $maxMiembros) {
+                                        $miembrosOrganizados[$posicionActual] = $vicePresidente;
+                                        $posicionActual++;
+                                    }
+                                    
+                                    // Agregar otros miembros en las posiciones restantes
+                                    foreach ($otrosMiembros as $miembro) {
+                                        if ($posicionActual < $maxMiembros) {
+                                            $miembrosOrganizados[$posicionActual] = $miembro;
+                                            $posicionActual++;
+                                        }
+                                    }
                                     
                                     for ($i = 0; $i < $maxMiembros; $i++):
-                                        $miembro = isset($miembrosActuales[$i]) ? $miembrosActuales[$i] : null;
+                                        $miembro = isset($miembrosOrganizados[$i]) ? $miembrosOrganizados[$i] : null;
                                         $posicion = $posiciones[$i];
                                         $claseEstado = $miembro ? 'presente' : 'ausente';
                                         $iniciales = $miembro ? 
@@ -1912,8 +1958,9 @@
                                             '?';
                                         $nombreCompleto = $miembro ? 
                                             htmlspecialchars($miembro['first_name'] . ' ' . $miembro['last_name']) : 
-                                            
+                                            'Vacante';
                                         $rol = $miembro ? htmlspecialchars($miembro['role_name']) : '';
+                                        $puesto = $miembro && isset($miembro['puesto']) ? htmlspecialchars($miembro['puesto']) : '';
                                         $posicionNumero = $i + 1;
                                         $estilosPosicion = "left: {$posicion['left']}; transform: {$posicion['transform']};";
                                         if (isset($posicion['top'])) {
@@ -1932,15 +1979,20 @@
                                             <div class="estado-indicator presente-indicator"></div>
                                             <?php endif; ?>
                                         </div>
-                                        <!-- Etiqueta central mejorada 
+                                        <!-- Tooltip con información del miembro -->
                                         <div class="miembro-tooltip">
                                             <div class="tooltip-header">
                                                 <strong><?= $nombreCompleto ?></strong>
-                                                <span class="posicion-badge">#<?= $posicionNumero ?></span>
+                                                
                                             </div>
+                                            <?php if ($puesto): ?>
+                                            <div class="tooltip-puesto">
+                                                <small><i class="bi bi-award me-1"></i><?= $puesto ?></small>
+                                            </div>
+                                            <?php endif; ?>
                                             <?php if ($rol): ?>
                                             <div class="tooltip-role">
-                                                <small><i class="bi bi-briefcase me-1"></i><?= $rol ?></small>
+                                               
                                             </div>
                                             <?php endif; ?>
                                             <div class="tooltip-status">
@@ -1949,7 +2001,7 @@
                                                     <?= $miembro ? 'Presente' : 'Ausente' ?>
                                                 </small>
                                             </div>
-                                        </div> -->
+                                        </div>
                                     </div>
                                     <?php endfor; ?>
                                     
@@ -2398,9 +2450,53 @@
             if (contListaPres) {
                 const miembros = data.miembros_presentes || [];
                 const maxMiembros = 7;
-                const miembrosLimitados = miembros.slice(0, maxMiembros);
                 
-                // Posiciones predefinidas para 7 miembros: #1 preside arriba, los otros 6 en semicírculo uniforme (igual que en PHP)
+                // Reorganizar miembros para priorizar Presidente y Vice Presidente en posición #1 (igual que en PHP)
+                const miembrosOrganizados = [];
+                let presidente = null;
+                let vicePresidente = null;
+                const otrosMiembros = [];
+                
+                // Separar miembros por puesto
+                miembros.forEach(miembro => {
+                    if (miembro.puesto) {
+                        if (miembro.puesto === 'Presidente') {
+                            presidente = miembro;
+                        } else if (miembro.puesto === 'Vice Presidente') {
+                            vicePresidente = miembro;
+                        } else {
+                            otrosMiembros.push(miembro);
+                        }
+                    } else {
+                        otrosMiembros.push(miembro);
+                    }
+                });
+                
+                // Asignar posición #1 (presidencial)
+                if (presidente) {
+                    miembrosOrganizados[0] = presidente; // Presidente en posición #1
+                } else if (vicePresidente) {
+                    miembrosOrganizados[0] = vicePresidente; // Vice Presidente en posición #1 si no hay Presidente
+                }
+                
+                // Llenar las demás posiciones con otros miembros
+                let posicionActual = 1; // Empezar desde posición #2
+                
+                // Agregar Vice Presidente en posición #2 si el Presidente está en #1
+                if (presidente && vicePresidente && posicionActual < maxMiembros) {
+                    miembrosOrganizados[posicionActual] = vicePresidente;
+                    posicionActual++;
+                }
+                
+                // Agregar otros miembros en las posiciones restantes
+                otrosMiembros.forEach(miembro => {
+                    if (posicionActual < maxMiembros) {
+                        miembrosOrganizados[posicionActual] = miembro;
+                        posicionActual++;
+                    }
+                });
+                
+                // Posiciones predefinidas para 7 miembros: #1 preside arriba, los otros 6 en semicírculo uniforme
                 const posiciones = [
                     {left: '50%', top: '10px', transform: 'translateX(-50%)'}, // #1 - Presidente (arriba)
                     {left: '10%', bottom: '30px', transform: 'translateX(-50%)'}, // #2 - Extremo izquierdo
@@ -2413,7 +2509,7 @@
                 
                 let hemicicloHtml = '';
                 for (let i = 0; i < maxMiembros; i++) {
-                    const miembro = miembrosLimitados[i];
+                    const miembro = miembrosOrganizados[i] || null;
                     const posicion = posiciones[i];
                     const claseEstado = miembro ? 'presente' : 'ausente';
                     const iniciales = miembro ? 
@@ -2423,6 +2519,7 @@
                         escapeHTML((miembro.first_name || '') + ' ' + (miembro.last_name || '')) : 
                         'Vacante';
                     const rol = miembro ? escapeHTML(miembro.role_name || '') : '';
+                    const puesto = miembro && miembro.puesto ? escapeHTML(miembro.puesto) : '';
                     const posicionNumero = i + 1;
                     
                     // Construir estilos de posición (top o bottom)
@@ -2447,6 +2544,7 @@
                                     <strong>${nombreCompleto}</strong>
                                     <span class="posicion-badge">#${posicionNumero}</span>
                                 </div>
+                                ${puesto ? '<div class="tooltip-puesto"><small><i class="bi bi-award me-1"></i>' + puesto + '</small></div>' : ''}
                                 ${rol ? '<div class="tooltip-role"><small><i class="bi bi-briefcase me-1"></i>' + rol + '</small></div>' : ''}
                                 <div class="tooltip-status">
                                     <small class="${miembro ? 'text-success' : 'text-muted'}">
