@@ -1759,6 +1759,96 @@
         body.high-contrast .indicador-estado small {
             color: #000000;
         }
+        
+        /* Lista de Miembros Presentes */
+        .lista-presentes {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .lista-presentes-header h5 {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        .miembro-lista-item {
+            background: white;
+            border-radius: 8px;
+            padding: 12px 15px;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .miembro-lista-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: #007bff;
+        }
+        
+        .miembro-lista-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .iniciales-small {
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+        
+        .miembro-lista-nombre {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            line-height: 1.3;
+        }
+        
+        .miembro-lista-puesto {
+            margin-top: 2px;
+        }
+        
+        .miembro-lista-puesto small {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .miembro-lista-status {
+            margin-left: 10px;
+        }
+        
+        /* Modo sala ajustes para lista */
+        body.modo-sala .lista-presentes {
+            display: none;
+        }
+        
+        /* Alto contraste para lista */
+        body.high-contrast .lista-presentes {
+            background: #ffffff;
+            border: 2px solid #000000;
+        }
+        
+        body.high-contrast .miembro-lista-item {
+            background: #ffffff;
+            border: 2px solid #000000;
+        }
+        
+        body.high-contrast .miembro-lista-nombre {
+            color: #000000;
+        }
+        
+        body.high-contrast .miembro-lista-avatar {
+            background: #000000;
+        }
     </style>
 </head>
 <body>
@@ -2058,6 +2148,68 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Lista de Miembros Presentes -->
+                        <?php if (!empty($miembros_presentes)): ?>
+                        <div class="lista-presentes mt-4">
+                            <div class="lista-presentes-header mb-3">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-person-lines-fill text-primary me-2"></i>
+                                    Miembros Presentes en Sesión
+                                </h5>
+                                <small class="text-muted">Lista completa de concejales presentes</small>
+                            </div>
+                            <div class="row g-2">
+                                <?php 
+                                // Reorganizar por puesto: Presidente, Vice Presidente, Concejales
+                                $miembrosPorPuesto = [
+                                    'Presidente' => [],
+                                    'Vice Presidente' => [],
+                                    'Concejal' => []
+                                ];
+                                
+                                foreach ($miembros_presentes as $miembro) {
+                                    $puesto = isset($miembro['puesto']) ? trim($miembro['puesto']) : '';
+                                    if (isset($miembrosPorPuesto[$puesto])) {
+                                        $miembrosPorPuesto[$puesto][] = $miembro;
+                                    }
+                                }
+                                
+                                // Mostrar en orden: Presidente, Vice Presidente, Concejales
+                                foreach ($miembrosPorPuesto as $puesto => $miembros):
+                                    foreach ($miembros as $miembro):
+                                ?>
+                                <div class="col-md-6">
+                                    <div class="miembro-lista-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="miembro-lista-avatar me-2">
+                                                <span class="iniciales-small">
+                                                    <?= strtoupper(substr($miembro['first_name'], 0, 1) . substr($miembro['last_name'], 0, 1)) ?>
+                                                </span>
+                                            </div>
+                                            <div class="miembro-lista-info flex-grow-1">
+                                                <div class="miembro-lista-nombre">
+                                                    <?= htmlspecialchars($miembro['first_name'] . ' ' . $miembro['last_name']) ?>
+                                                </div>
+                                                <div class="miembro-lista-puesto">
+                                                    <small class="text-muted">
+                                                        <i class="bi bi-award me-1"></i><?= htmlspecialchars($puesto) ?>
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            <div class="miembro-lista-status">
+                                                <i class="bi bi-circle-fill text-success" style="font-size: 8px;"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php 
+                                    endforeach;
+                                endforeach;
+                                ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -2666,6 +2818,70 @@
                             </div>
                         </div>
                     </div>
+                    
+                    ${miembros.length > 0 ? `
+                        <!-- Lista de Miembros Presentes -->
+                        <div class="lista-presentes mt-4">
+                            <div class="lista-presentes-header mb-3">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-person-lines-fill text-primary me-2"></i>
+                                    Miembros Presentes en Sesión
+                                </h5>
+                                <small class="text-muted">Lista completa de concejales presentes</small>
+                            </div>
+                            <div class="row g-2">
+                                ${(() => {
+                                    let listaHTML = '';
+                                    
+                                    // Organizar por puesto: Presidente primero, luego Vice, luego Concejales
+                                    const miembrosPorPuesto = {
+                                        'Presidente': [],
+                                        'Vice Presidente': [],
+                                        'Concejal': []
+                                    };
+                                    
+                                    miembros.forEach(m => {
+                                        const puesto = m.puesto ? m.puesto.trim() : '';
+                                        if (miembrosPorPuesto[puesto] !== undefined) {
+                                            miembrosPorPuesto[puesto].push(m);
+                                        }
+                                    });
+                                    
+                                    // Renderizar en orden
+                                    ['Presidente', 'Vice Presidente', 'Concejal'].forEach(puesto => {
+                                        miembrosPorPuesto[puesto].forEach(m => {
+                                            const iniciales = (m.first_name.charAt(0) + m.last_name.charAt(0)).toUpperCase();
+                                            const nombreCompleto = escapeHTML((m.first_name || '') + ' ' + (m.last_name || ''));
+                                            
+                                            listaHTML += `
+                                                <div class="col-md-6">
+                                                    <div class="miembro-lista-item">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="miembro-lista-avatar me-2">
+                                                                <span class="iniciales-small">${iniciales}</span>
+                                                            </div>
+                                                            <div class="miembro-lista-info flex-grow-1">
+                                                                <div class="miembro-lista-nombre">${nombreCompleto}</div>
+                                                                <div class="miembro-lista-puesto">
+                                                                    <small class="text-muted">
+                                                                        <i class="bi bi-award me-1"></i>${escapeHTML(puesto)}
+                                                                    </small>
+                                                                </div>
+                                                            </div>
+                                                            <div class="miembro-lista-status">
+                                                                <i class="bi bi-circle-fill text-success" style="font-size: 8px;"></i>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>`;
+                                        });
+                                    });
+                                    
+                                    return listaHTML;
+                                })()}
+                            </div>
+                        </div>
+                    ` : ''}
                 `;
                 
                 contListaPres.innerHTML = html;
