@@ -1862,7 +1862,7 @@
 
         <!-- Sala de Sesiones - Sección Prominente -->
         <div class="row justify-content-center mb-4">
-            <div class="col-lg-8">
+            <div class="col-lg-10">
                 <div class="card-publico hemiciclo-card">
                     <div class="card-body px-4 py-4" id="miembros-presentes-container">
                         <!-- Header mejorado con más información -->
@@ -1973,28 +1973,7 @@
                                             <?php endif; ?>
                                         </div>
                                         <!-- Tooltip con información del miembro -->
-                                        <div class="miembro-tooltip">
-                                            <div class="tooltip-header">
-                                                <strong><?= $nombreCompleto ?></strong>
-                                                
-                                            </div>
-                                            <?php if ($puesto): ?>
-                                            <div class="tooltip-puesto">
-                                                <small><i class="bi bi-award me-1"></i><?= $puesto ?></small>
-                                            </div>
-                                            <?php endif; ?>
-                                            <?php if ($rol): ?>
-                                            <div class="tooltip-role">
-                                                <small><i class="bi bi-person-badge me-1"></i><?= $puesto ? $puesto : $rol ?></small>
-                                            </div>
-                                            <?php endif; ?>
-                                            <div class="tooltip-status">
-                                                <small class="<?= $miembro ? 'text-success' : 'text-muted' ?>">
-                                                    <i class="bi <?= $miembro ? 'bi-circle-fill' : 'bi-circle' ?> me-1"></i>
-                                                    <?= $miembro ? 'Presente' : 'Ausente' ?>
-                                                </small>
-                                            </div>
-                                        </div>
+                                        
                                     </div>
                                     <?php endfor; ?>
                                     
