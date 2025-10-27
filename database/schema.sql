@@ -1,9 +1,9 @@
--- Script SQL para crear la base de datos del sistema de votación
--- Ejecutar en MySQL/MariaDB
+-- Script SQL para crear las tablas del sistema de votación
+-- Para servidor compartido DonWeb
+-- IMPORTANTE: La base de datos a0020819_votocde ya debe estar creada por el hosting
 
--- Crear la base de datos
-CREATE DATABASE IF NOT EXISTS voto_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE voto_db;
+-- Usar la base de datos del hosting
+USE a0020819_votocde;
 
 -- Tabla de roles
 CREATE TABLE roles (
@@ -23,6 +23,7 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
+    puesto ENUM('Presidente', 'Vice Presidente', 'Concejal', 'Secretario', 'Pro Secretario') NULL,
     role_id INT,
     status ENUM('active', 'inactive') DEFAULT 'active',
     last_login TIMESTAMP NULL,
@@ -39,14 +40,16 @@ INSERT INTO roles (name, description) VALUES
 
 -- Insertar usuario administrador por defecto
 -- Usuario: admin, Contraseña: admin123
+-- NOTA: Cambiar estos datos por seguridad después de la instalación
 INSERT INTO users (username, email, password, first_name, last_name, role_id) VALUES
-('admin', 'admin@sistema.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador', 'Sistema', 1);
+('admin', 'admin@donweb.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador', 'Sistema', 1);
 
 -- Índices adicionales para optimización
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_role_id ON users(role_id);
 CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_puesto ON users(puesto);
 CREATE INDEX idx_roles_name ON roles(name);
 CREATE INDEX idx_roles_status ON roles(status);
 
@@ -77,9 +80,10 @@ CREATE TABLE activity_logs (
 );
 
 -- Insertar algunos usuarios de ejemplo
+-- NOTA: Cambiar estos emails por datos reales después de la instalación
 INSERT INTO users (username, email, password, first_name, last_name, role_id) VALUES
-('editor1', 'editor@sistema.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Editor', 'Principal', 2),
-('viewer1', 'viewer@sistema.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Usuario', 'Viewer', 3);
+('editor1', 'editor@donweb.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Editor', 'Principal', 2),
+('viewer1', 'viewer@donweb.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Usuario', 'Viewer', 3);
 
 -- Tabla de auditoría para votaciones (para el sistema de eliminación)
 CREATE TABLE IF NOT EXISTS auditoria_votacion (

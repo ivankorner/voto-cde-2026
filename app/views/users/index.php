@@ -27,6 +27,7 @@ ob_start();
                             <th>Usuario</th>
                             <th>Nombre Completo</th>
                             <th>Email</th>
+                            <th>Puesto</th>
                             <th>Rol</th>
                             <th>Estado</th>
                             <th>Fecha Creación</th>
@@ -47,6 +48,19 @@ ob_start();
                             </td>
                             <td>
                                 <?= htmlspecialchars($user['email']) ?>
+                            </td>
+                            <td>
+                                <?php if (!empty($user['puesto'])): ?>
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-briefcase"></i>
+                                        <?= htmlspecialchars($user['puesto']) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="text-muted">
+                                        <i class="bi bi-dash"></i>
+                                        Sin puesto
+                                    </span>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <span class="badge bg-primary">

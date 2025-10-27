@@ -93,6 +93,36 @@ ob_start();
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
+                                <label for="puesto" class="form-label">
+                                    <i class="bi bi-briefcase"></i>
+                                    Puesto
+                                </label>
+                                <select class="form-select" id="puesto" name="puesto">
+                                    <option value="">Seleccionar puesto...</option>
+                                    <option value="Presidente" <?= (isset($data['puesto']) && $data['puesto'] === 'Presidente') ? 'selected' : '' ?>>
+                                        Presidente
+                                    </option>
+                                    <option value="Vice Presidente" <?= (isset($data['puesto']) && $data['puesto'] === 'Vice Presidente') ? 'selected' : '' ?>>
+                                        Vice Presidente
+                                    </option>
+                                    <option value="Concejal" <?= (isset($data['puesto']) && $data['puesto'] === 'Concejal') ? 'selected' : '' ?>>
+                                        Concejal
+                                    </option>
+                                    <option value="Secretario" <?= (isset($data['puesto']) && $data['puesto'] === 'Secretario') ? 'selected' : '' ?>>
+                                        Secretario
+                                    </option>
+                                    <option value="Pro Secretario" <?= (isset($data['puesto']) && $data['puesto'] === 'Pro Secretario') ? 'selected' : '' ?>>
+                                        Pro Secretario
+                                    </option>
+                                </select>
+                                <div class="form-text">Cargo o posición del usuario en el consejo</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
                                 <label for="role_id" class="form-label">
                                     <i class="bi bi-shield"></i>
                                     Rol *
@@ -108,21 +138,22 @@ ob_start();
                                 </select>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="status" class="form-label">
-                            <i class="bi bi-toggle-on"></i>
-                            Estado
-                        </label>
-                        <select class="form-select" id="status" name="status">
-                            <option value="active" <?= (isset($data['status']) && $data['status'] === 'active') ? 'selected' : 'selected' ?>>
-                                Activo
-                            </option>
-                            <option value="inactive" <?= (isset($data['status']) && $data['status'] === 'inactive') ? 'selected' : '' ?>>
-                                Inactivo
-                            </option>
-                        </select>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="status" class="form-label">
+                                    <i class="bi bi-toggle-on"></i>
+                                    Estado
+                                </label>
+                                <select class="form-select" id="status" name="status">
+                                    <option value="active" <?= (isset($data['status']) && $data['status'] === 'active') ? 'selected' : 'selected' ?>>
+                                        Activo
+                                    </option>
+                                    <option value="inactive" <?= (isset($data['status']) && $data['status'] === 'inactive') ? 'selected' : '' ?>>
+                                        Inactivo
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">

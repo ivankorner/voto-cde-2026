@@ -30,6 +30,7 @@ class UserController extends Controller {
                 'password' => $_POST['password'] ?? '',
                 'first_name' => trim($_POST['first_name'] ?? ''),
                 'last_name' => trim($_POST['last_name'] ?? ''),
+                'puesto' => $_POST['puesto'] ?? null,
                 'role_id' => $_POST['role_id'] ?? '',
                 'status' => $_POST['status'] ?? 'active'
             ];
@@ -91,6 +92,7 @@ class UserController extends Controller {
                 'password' => $_POST['password'] ?? '',
                 'first_name' => trim($_POST['first_name'] ?? ''),
                 'last_name' => trim($_POST['last_name'] ?? ''),
+                'puesto' => $_POST['puesto'] ?? null,
                 'role_id' => $_POST['role_id'] ?? '',
                 'status' => $_POST['status'] ?? 'active'
             ];
@@ -174,6 +176,14 @@ class UserController extends Controller {
         
         if (empty($data['role_id'])) {
             $errors[] = 'El rol es requerido';
+        }
+        
+        // Validar puesto si se proporciona
+        if (!empty($data['puesto'])) {
+            $puestosValidos = ['Presidente', 'Vice Presidente', 'Concejal', 'Secretario', 'Pro Secretario'];
+            if (!in_array($data['puesto'], $puestosValidos)) {
+                $errors[] = 'El puesto seleccionado no es válido';
+            }
         }
         
         // Validar contraseña solo si es un nuevo usuario o se está proporcionando una nueva contraseña
