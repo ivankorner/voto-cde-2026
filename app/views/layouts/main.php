@@ -79,14 +79,12 @@
                 </ul>
                 
                 <ul class="navbar-nav">
-                    <!-- User Switcher para desarrollo -->
+                    <!-- User Switcher para desarrollo (solo administradores) -->
+                    <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin'): ?>
                     <li class="nav-item dropdown me-3">
                         <a class="nav-link dropdown-toggle btn btn-outline-light btn-sm" href="#" id="userSwitcher" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-arrow-repeat"></i>
-                            <span class="badge bg-<?= 
-                                $_SESSION['user_role'] === 'admin' ? 'danger' : 
-                                ($_SESSION['user_role'] === 'editor' ? 'warning' : 'info') 
-                            ?>"><?= strtoupper($_SESSION['user_role']) ?></span>
+                            <span class="badge bg-danger">ADMIN</span>
                         </a>
                         <ul class="dropdown-menu">
                             <li><h6 class="dropdown-header">Cambiar Usuario</h6></li>
@@ -119,6 +117,7 @@
                             </li>
                         </ul>
                     </li>
+                    <?php endif; ?>
                     
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
