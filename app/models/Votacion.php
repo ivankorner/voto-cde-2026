@@ -29,8 +29,17 @@ class Votacion extends Model {
     }
     
     public function getSesionById($id) {
-        $query = "SELECT sv.*, u.first_name, u.last_name
+        // Incluir datos del orden del día y alias para nombre de sesión
+        $query = "SELECT 
+                    sv.*, 
+                    sv.nombre AS nombre_sesion,
+                    od.numero_acta, 
+                    od.fecha_sesion, 
+                    od.tipo_sesion,
+                    u.first_name, 
+                    u.last_name
                   FROM {$this->table} sv
+                  LEFT JOIN orden_dia od ON sv.orden_dia_id = od.id
                   LEFT JOIN users u ON sv.created_by = u.id
                   WHERE sv.id = ?";
         

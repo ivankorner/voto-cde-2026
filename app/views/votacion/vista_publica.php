@@ -2052,10 +2052,10 @@
                                             $estilosPosicion .= " bottom: {$posicion['bottom']};";
                                         }
                                     ?>
-                                    <div class="miembro-hemiciclo <?= $claseEstado ?> <?= $posicionNumero === 1 ? 'Presidente' : '' ?>" 
-                                         style="<?= $estilosPosicion ?>"
-                                         data-miembro-id="<?= $miembro ? $miembro['id'] : 'vacio-' . $i ?>"
-                                         data-posicion="<?= $posicionNumero ?>">
+                             <div class="miembro-hemiciclo <?= $claseEstado ?> <?= $posicionNumero === 1 ? 'Presidente' : '' ?>" 
+                                 style="<?= $estilosPosicion ?>"
+                                 data-miembro-id="<?= $miembro ? $miembro['user_id'] : 'vacio-' . $i ?>"
+                                 data-posicion="<?= $posicionNumero ?>">
                                         <div class="miembro-avatar">
                                             <span class="iniciales"><?= $iniciales ?></span>
                                             <?php if ($miembro): ?>
@@ -2648,9 +2648,9 @@
                     }
                     
                     hemicicloHtml += `
-                        <div class="miembro-hemiciclo ${claseEstado} ${posicionNumero === 1 ? 'presidente' : ''}" 
+                    <div class="miembro-hemiciclo ${claseEstado} ${posicionNumero === 1 ? 'presidente' : ''}" 
                              style="${estilosPosicion}"
-                             data-miembro-id="${miembro ? miembro.id : 'vacio-' + i}"
+                        data-miembro-id="${miembro ? miembro.user_id : 'vacio-' + i}"
                              data-posicion="${posicionNumero}">
                             <div class="miembro-avatar">
                                 <span class="iniciales">${iniciales}</span>
