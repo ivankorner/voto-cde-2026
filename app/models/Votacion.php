@@ -696,21 +696,49 @@ class Votacion extends Model {
     }
     
     public function getPuntosOrdenDia($sesionId, $soloHabilitados = false) {
-        $whereClause = $soloHabilitados ? "AND ph.habilitado = TRUE" : "";
-        
-        $query = "SELECT ph.*, 
-                         u.first_name, u.last_name,
-                         sv.nombre as nombre_sesion, sv.estado as estado_sesion
-                  FROM puntos_habilitados ph
-                  LEFT JOIN users u ON ph.habilitado_por = u.id
-                  JOIN sesiones_votacion sv ON ph.sesion_id = sv.id
-                  WHERE ph.sesion_id = ? {$whereClause}
-                  ORDER BY ph.orden_punto";
-        
-        $stmt = $this->db->prepare($query);
-        $stmt->execute([$sesionId]);
-        
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+     $whereClause = $soloHabilitados ? "AND ph.habilitado = TRUE" : "";
+
+     // Unimos expedientes -> items para obtener numero_orden y ordenar acorde al Orden del Día.
+     // También ubicamos 'Actas' según el item 'lectura_actas' del orden del día.
+                $query = "SELECT ph.*, 
+                                                 u.first_name, u.last_name,
+                                                 sv.nombre as nombre_sesion, sv.estado as estado_sesion, sv.orden_dia_id,
+                                                 odi.numero_orden AS item_numero_orden,
+                                                 odi_actas.numero_orden AS actas_numero_orden,
+                                                 CASE 
+                                                     WHEN ph.item_tipo = 'global' AND ph.numero_expediente = 'Apertura de Sesión' THEN 1
+                                                     WHEN ph.item_tipo = 'actas' THEN COALESCE(odi_actas.numero_orden, 3)
+                                                     WHEN ph.item_tipo = 'expediente' THEN COALESCE(odi.numero_orden, NULL)
+                                                     WHEN ph.item_tipo = 'global' AND ph.numero_expediente = 'Cierre de Sesión' THEN 9999
+                                                     ELSE NULL
+                                                 END AS orden_visual
+            FROM puntos_habilitados ph
+            LEFT JOIN users u ON ph.habilitado_por = u.id
+            JOIN sesiones_votacion sv ON ph.sesion_id = sv.id
+            LEFT JOIN orden_dia_expedientes ode 
+                ON (ph.item_tipo = 'expediente' AND ph.item_id = ode.id)
+            LEFT JOIN orden_dia_items odi 
+                ON (ode.orden_dia_item_id = odi.id)
+            LEFT JOIN orden_dia_items odi_actas 
+                ON (sv.orden_dia_id = odi_actas.orden_dia_id AND odi_actas.tipo_item = 'lectura_actas')
+            WHERE ph.sesion_id = ? {$whereClause}
+            ORDER BY 
+              CASE 
+             WHEN ph.item_tipo = 'global' AND ph.numero_expediente = 'Apertura de Sesión' THEN 0
+             WHEN ph.item_tipo = 'actas' THEN COALESCE(odi_actas.numero_orden, 3)
+             WHEN ph.item_tipo = 'expediente' THEN COALESCE(odi.numero_orden, 1000)
+             WHEN ph.item_tipo = 'global' AND ph.numero_expediente = 'Cierre de Sesión' THEN 9999
+             ELSE 5000
+              END,
+              CASE 
+             WHEN ph.item_tipo = 'expediente' THEN ode.numero_expediente
+             ELSE ph.orden_punto
+              END";
+
+     $stmt = $this->db->prepare($query);
+     $stmt->execute([$sesionId]);
+
+     return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     public function getSiguientePuntoAHabilitar($sesionId) {

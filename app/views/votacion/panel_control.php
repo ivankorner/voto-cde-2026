@@ -212,7 +212,7 @@ ob_start();
                                         class="<?= $punto['habilitado'] ? 'table-success' : '' ?>">
                                         <td>
                                             <span class="badge bg-primary fs-6">
-                                                <?= $punto['orden_punto'] ?>
+                                                <?= isset($punto['orden_visual']) && $punto['orden_visual'] ? $punto['orden_visual'] : $punto['orden_punto'] ?>
                                             </span>
                                         </td>
                                         <td>
