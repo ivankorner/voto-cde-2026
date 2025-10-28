@@ -137,6 +137,9 @@ class VotacionController extends Controller {
             $puntosHabilitados = $votacionModel->getPuntosOrdenDia($id, false); // Todos para admins
         }
         
+        // Determinar si el punto de 'Actas' está habilitado por el administrador
+        $actasHabilitada = $votacionModel->isPuntoHabilitado($id, 'actas', 0);
+
         // Crear un mapa de expedientes habilitados
         $expedientesHabilitados = [];
         foreach ($puntosHabilitados as $punto) {
@@ -191,6 +194,7 @@ class VotacionController extends Controller {
             'usuario_ya_presente' => $usuarioYaPresente,
             'es_admin' => $_SESSION['user_role'] === 'admin',
             'puntos_habilitados' => $puntosHabilitados,
+            'actas_habilitada' => $actasHabilitada,
             'total_puntos' => count($votacionModel->getPuntosOrdenDia($id, false)),
             'puntos_habilitados_count' => count(array_filter($puntosHabilitados, function($p) { return $p['habilitado']; })),
             'page_title' => 'Sala de Votación - ' . ($sesion['nombre'] ?? 'Sesión')
@@ -317,6 +321,19 @@ class VotacionController extends Controller {
         
         if (!$estaPresente) {
             $this->sendJSON(['success' => false, 'message' => 'Debe marcar presencia antes de votar']);
+        }
+
+        // Verificar que el punto esté habilitado por el administrador (control progresivo)
+        $itemTipo = $_POST['item_tipo'];
+        // Para actas usamos item_id=0; para expediente viene explícito; para otros tipos exigimos también habilitado si existiera
+        $itemId = isset($_POST['item_id']) ? (($_POST['item_id'] === '' || $_POST['item_id'] === null) ? null : $_POST['item_id']) : null;
+        if ($itemTipo === 'actas') {
+            $itemId = 0;
+        }
+        
+        // Solo permitir votar si el punto correspondiente está habilitado
+        if (!$votacionModel->isPuntoHabilitado($_POST['sesion_id'], $itemTipo, $itemId)) {
+            $this->sendJSON(['success' => false, 'message' => 'Este punto aún no está habilitado para votación por el administrador']);
         }
         
         try {

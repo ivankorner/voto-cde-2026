@@ -216,8 +216,16 @@ ob_start();
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="badge bg-<?= $punto['item_tipo'] === 'global' ? 'info' : 'secondary' ?>">
-                                                <?= $punto['item_tipo'] === 'global' ? 'Global' : 'Expediente' ?>
+                                            <?php 
+                                            $tipo = $punto['item_tipo'];
+                                            $label = 'Otro';
+                                            $bg = 'secondary';
+                                            if ($tipo === 'global') { $label = 'Global'; $bg = 'info'; }
+                                            elseif ($tipo === 'expediente') { $label = 'Expediente'; $bg = 'secondary'; }
+                                            elseif ($tipo === 'actas') { $label = 'Actas'; $bg = 'info'; }
+                                            ?>
+                                            <span class="badge bg-<?= $bg ?>">
+                                                <?= $label ?>
                                             </span>
                                         </td>
                                         <td>

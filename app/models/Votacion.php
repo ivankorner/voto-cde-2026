@@ -627,8 +627,12 @@ class Votacion extends Model {
         
         // Insertar punto global (apertura de sesión) - item_id puede ser NULL
         $stmt->execute([$sesionId, 'global', null, 'Apertura de Sesión', 'Llamado a lista y verificación de quórum', 1, 0]);
-        
-        $orden = 2;
+
+        // Insertar punto para Lectura y Consideración de Actas (item_id = 0 para consistencia con votos)
+        // Queda deshabilitado por defecto y debe habilitarse explícitamente por el administrador
+        $stmt->execute([$sesionId, 'actas', 0, 'Lectura y Consideración de Actas', 'Votación de lectura y consideración de actas', 2, 0]);
+
+        $orden = 3;
         foreach ($expedientes as $expediente) {
             $stmt->execute([
                 $sesionId, 
@@ -645,6 +649,24 @@ class Votacion extends Model {
         $stmt->execute([$sesionId, 'global', null, 'Cierre de Sesión', 'Cierre de la sesión y próximos pasos', $orden, 0]);
         
         return true;
+    }
+
+    public function isPuntoHabilitado($sesionId, $itemTipo, $itemId = null) {
+        $this->ensurePuntosHabilitadosTable();
+
+        // Para item_id nulo, comparamos IS NULL; para 0 u otros, comparamos igualdad
+        if ($itemId === null) {
+            $query = "SELECT 1 FROM puntos_habilitados WHERE sesion_id = ? AND item_tipo = ? AND item_id IS NULL AND habilitado = 1 LIMIT 1";
+            $params = [$sesionId, $itemTipo];
+        } else {
+            $query = "SELECT 1 FROM puntos_habilitados WHERE sesion_id = ? AND item_tipo = ? AND item_id = ? AND habilitado = 1 LIMIT 1";
+            $params = [$sesionId, $itemTipo, $itemId];
+        }
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (bool)$row;
     }
     
     public function habilitarPunto($sesionId, $puntoId, $userId) {

@@ -340,8 +340,8 @@ ob_start();
                         </div>
                         <?php endif; ?>
 
-                        <!-- Botones de votación (solo si puede votar, sesión activa y NO ha votado) -->
-                        <?php if ($puede_votar && $sesion['estado'] === 'activa' && !$actas_item['ya_voto']): ?>
+                        <!-- Botones de votación (solo si puede votar, sesión activa, está presente, ACTAS habilitadas y NO ha votado) -->
+                        <?php if ($puede_votar && $sesion['estado'] === 'activa' && $usuario_ya_presente && !empty($actas_habilitada) && !$actas_item['ya_voto']): ?>
                         <div class="btn-group w-100" role="group">
                             <button class="btn btn-success" onclick="votar('actas', 0, 'positivo', 'Lectura de Actas')">
                                 <i class="bi bi-hand-thumbs-up"></i>
@@ -362,6 +362,12 @@ ob_start();
                                 <i class="bi bi-pause-circle"></i> La sesión no está activa
                             <?php elseif (!$puede_votar): ?>
                                 <i class="bi bi-info-circle"></i> Solo los editores pueden votar
+                            <?php elseif (!$usuario_ya_presente): ?>
+                                <i class="bi bi-person-exclamation"></i> Debe marcar su presencia para poder votar
+                            <?php elseif (empty($actas_habilitada)): ?>
+                                <i class="bi bi-clock"></i> Esperando habilitación del administrador para "Lectura y Consideración de Actas"
+                            <?php elseif ($actas_item['ya_voto']): ?>
+                                <i class="bi bi-check2-circle"></i> Ya ha emitido su voto para este punto
                             <?php endif; ?>
                         </div>
                         <?php endif; ?>
@@ -455,8 +461,8 @@ ob_start();
                             </div>
                             <?php endif; ?>
                             
-                            <!-- Botones de votación (solo si puede votar, sesión activa y NO ha votado) -->
-                            <?php if ($puede_votar && $sesion['estado'] === 'activa' && !$expediente['ya_voto']): ?>
+                            <!-- Botones de votación (solo si puede votar, sesión activa, está presente y NO ha votado) -->
+                            <?php if ($puede_votar && $sesion['estado'] === 'activa' && $usuario_ya_presente && !$expediente['ya_voto']): ?>
                             <div class="btn-group w-100" role="group">
                                 <button class="btn btn-success" 
                                         onclick='votar("expediente", <?= (int)$expediente["id"] ?>, "positivo", <?= json_encode($expediente["numero_expediente"] ?? "") ?>, <?= json_encode($expediente["extracto"] ?? "") ?>)'>
@@ -480,6 +486,8 @@ ob_start();
                                     <i class="bi bi-pause-circle"></i> La sesión no está activa
                                 <?php elseif (!$puede_votar): ?>
                                     <i class="bi bi-info-circle"></i> Solo los editores pueden votar
+                                <?php elseif (!$usuario_ya_presente): ?>
+                                    <i class="bi bi-person-exclamation"></i> Debe marcar su presencia para poder votar
                                 <?php endif; ?>
                             </div>
                             <?php endif; ?>
