@@ -47,11 +47,12 @@ try {
     $presentes = [];
     if ($sesion['id'] > 0) {
         $stmt = $db->prepare("
-            SELECT ps.*, u.first_name, u.last_name, u.username
+            SELECT ps.*, u.first_name, u.last_name, u.username, r.name AS role_name
             FROM presentes_sesion ps
-            JOIN users u ON ps.usuario_id = u.id
-            WHERE ps.sesion_id = ?
-            ORDER BY u.first_name, u.last_name
+            JOIN users u ON ps.user_id = u.id
+            JOIN roles r ON u.role_id = r.id
+            WHERE ps.sesion_id = ? AND ps.presente = 1 AND r.name = 'editor'
+            ORDER BY u.last_name, u.first_name
         ");
         $stmt->execute([$sesion['id']]);
         $presentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -68,7 +69,7 @@ try {
                         COUNT(*) as cantidad,
                         GROUP_CONCAT(CONCAT(u.first_name, ' ', u.last_name) SEPARATOR ', ') as votantes
                     FROM votos v
-                    JOIN users u ON v.usuario_id = u.id
+                    JOIN users u ON v.user_id = u.id
                     WHERE v.sesion_id = ? AND v.item_votacion_id = ? AND v.item_votacion_tipo = 'expediente'
                     GROUP BY tipo_voto
                 ");
@@ -122,6 +123,28 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
     <style>
+        /* === Viewport adaptativo (encaja 100% ventana) === */
+        :root {
+            --target-width: 100vw;
+            --target-height: 100vh;
+            --scale: 1; /* sin escalado, todo fluido */
+            /* escalas dinámicas para textos/espaciados */
+            --header-h: clamp(120px, 12vh, 220px);
+            --pad: clamp(12px, 1vw, 24px);
+            --gap: clamp(14px, 1.2vw, 28px);
+            --fs-base: clamp(14px, 0.95vw, 20px);
+            --fs-title: clamp(22px, 1.8vw, 38px);
+            --fs-h1: clamp(28px, 2.5vw, 64px);
+            --avatar: clamp(48px, 3vw, 100px);
+        }
+        html, body { width: 100%; height: 100%; }
+        #viewport-4k {
+            width: var(--target-width);
+            height: var(--target-height);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
         /* === OPTIMIZACIÓN PARA PANTALLAS GRANDES === */
         
         :root {
@@ -146,9 +169,9 @@ try {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--primary-gradient);
             min-height: 100vh;
-            overflow-x: hidden;
+            overflow: hidden; /* sin scroll en pantalla grande */
             position: relative;
-            font-size: 18px; /* Base font size increased for large screens */
+            font-size: var(--fs-base);
         }
         
         /* Animated background */
@@ -183,7 +206,8 @@ try {
             position: sticky;
             top: 0;
             z-index: 1000;
-            padding: 2rem 0;
+            padding: calc(var(--pad) * 1.5) 0;
+            min-height: var(--header-h);
         }
         
         .header-content {
@@ -192,7 +216,7 @@ try {
             align-items: center;
             max-width: 100%;
             margin: 0 auto;
-            padding: 0 3rem;
+            padding: 0 calc(var(--pad) * 2);
         }
         
         .logo-section {
@@ -202,21 +226,21 @@ try {
         }
         
         .logo-circle {
-            width: 80px;
-            height: 80px;
+            width: calc(var(--avatar) * 1.2);
+            height: calc(var(--avatar) * 1.2);
             background: var(--primary-gradient);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 2rem;
+            font-size: clamp(20px, 1.6vw, 36px);
             font-weight: 800;
             box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
         }
         
         .titulo-principal {
-            font-size: 3rem;
+            font-size: var(--fs-h1);
             font-weight: 800;
             color: var(--text-primary);
             margin-bottom: 0.5rem;
@@ -227,7 +251,7 @@ try {
         }
         
         .subtitulo-principal {
-            font-size: 1.4rem;
+            font-size: clamp(14px, 1.1vw, 24px);
             color: var(--text-secondary);
             font-weight: 500;
         }
@@ -240,16 +264,16 @@ try {
         }
         
         .fecha-hora {
-            font-size: 1.8rem;
+            font-size: clamp(16px, 1.4vw, 28px);
             font-weight: 600;
             color: var(--text-primary);
         }
         
         .estado-sesion {
-            padding: 1rem 2rem;
+            padding: calc(var(--pad) * 0.8) calc(var(--pad) * 1.4);
             border-radius: 50px;
             font-weight: 600;
-            font-size: 1.2rem;
+            font-size: clamp(12px, 1vw, 20px);
             text-transform: uppercase;
             letter-spacing: 1px;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
@@ -279,11 +303,12 @@ try {
         /* === GRID PRINCIPAL === */
         .main-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3rem;
-            padding: 3rem;
+            grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+            gap: var(--gap);
+            padding: calc(var(--pad) * 2);
             max-width: 100%;
             margin: 0 auto;
+            height: calc(100vh - var(--header-h));
         }
         
         /* === SECCIÓN DE VOTACIÓN === */
@@ -291,16 +316,18 @@ try {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
             border-radius: 30px;
-            padding: 3rem;
+            padding: calc(var(--pad) * 2);
             box-shadow: var(--shadow-lg);
             border: 1px solid var(--glass-border);
+            height: 100%;
+            overflow: hidden;
         }
         
         .section-title {
-            font-size: 2.5rem;
+            font-size: var(--fs-title);
             font-weight: 700;
             color: var(--text-primary);
-            margin-bottom: 2rem;
+            margin-bottom: var(--pad);
             display: flex;
             align-items: center;
             gap: 1rem;
@@ -314,8 +341,8 @@ try {
         .punto-votacion {
             background: white;
             border-radius: 20px;
-            padding: 2.5rem;
-            margin-bottom: 2rem;
+            padding: calc(var(--pad) * 1.6);
+            margin-bottom: var(--pad);
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
             border-left: 8px solid #667eea;
             transition: all 0.3s ease;
@@ -327,38 +354,45 @@ try {
         }
         
         .punto-numero {
-            font-size: 1.8rem;
+            font-size: clamp(16px, 1.2vw, 24px);
             font-weight: 700;
             color: #667eea;
             margin-bottom: 1rem;
         }
         
         .punto-expediente {
-            font-size: 1.4rem;
+            font-size: clamp(16px, 1.2vw, 24px);
             font-weight: 600;
             color: var(--text-primary);
             margin-bottom: 1rem;
         }
         
         .punto-descripcion {
-            font-size: 1.2rem;
+            font-size: clamp(14px, 1vw, 20px);
             color: var(--text-secondary);
             line-height: 1.6;
-            margin-bottom: 2rem;
+            margin-bottom: var(--pad);
+        }
+
+        /* zona scrollable dentro de votación/hemiciclo */
+        .section-content.scroll-area {
+            height: calc(100% - (var(--fs-title) + var(--pad) * 2));
+            overflow: auto;
+            padding-right: 4px;
         }
         
         /* === RESULTADOS DE VOTACIÓN === */
         .resultados-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 1.5rem;
-            margin-top: 2rem;
+            gap: var(--gap);
+            margin-top: var(--pad);
         }
         
         .resultado-item {
             background: white;
             border-radius: 15px;
-            padding: 1.5rem;
+            padding: calc(var(--pad) * 1.2);
             text-align: center;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
@@ -381,7 +415,7 @@ try {
         }
         
         .resultado-numero {
-            font-size: 3rem;
+            font-size: clamp(24px, 2.4vw, 56px);
             font-weight: 800;
             margin-bottom: 0.5rem;
         }
@@ -411,22 +445,24 @@ try {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
             border-radius: 30px;
-            padding: 3rem;
+            padding: calc(var(--pad) * 2);
             box-shadow: var(--shadow-lg);
             border: 1px solid var(--glass-border);
+            height: 100%;
+            overflow: hidden;
         }
         
         .hemiciclo-grid {
             display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 1rem;
-            margin-top: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--gap);
+            margin-top: var(--pad);
         }
         
         .miembro-hemiciclo {
             background: white;
             border-radius: 15px;
-            padding: 1.5rem;
+            padding: calc(var(--pad) * 1.2);
             text-align: center;
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
@@ -439,8 +475,8 @@ try {
         }
         
         .miembro-avatar {
-            width: 60px;
-            height: 60px;
+            width: var(--avatar);
+            height: var(--avatar);
             background: var(--primary-gradient);
             border-radius: 50%;
             display: flex;
@@ -448,21 +484,21 @@ try {
             justify-content: center;
             margin: 0 auto 1rem;
             color: white;
-            font-size: 1.5rem;
+            font-size: clamp(16px, 1.4vw, 28px);
             font-weight: 700;
         }
         
         .miembro-nombre {
-            font-size: 1rem;
+            font-size: clamp(14px, 1vw, 20px);
             font-weight: 600;
             color: var(--text-primary);
             margin-bottom: 0.5rem;
         }
         
         .miembro-estado {
-            padding: 0.5rem 1rem;
+            padding: calc(var(--pad) * 0.4) calc(var(--pad) * 0.8);
             border-radius: 25px;
-            font-size: 0.9rem;
+            font-size: clamp(12px, 0.9vw, 18px);
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -572,23 +608,9 @@ try {
             gap: 0.5rem;
         }
         
-        /* === RESPONSIVE PARA PANTALLAS EXTRA GRANDES === */
+        /* === Ajustes mínimos extra grandes === */
         @media (min-width: 2560px) {
-            .titulo-principal {
-                font-size: 4rem;
-            }
-            
-            .section-title {
-                font-size: 3rem;
-            }
-            
-            .resultado-numero {
-                font-size: 4rem;
-            }
-            
-            .hemiciclo-grid {
-                grid-template-columns: repeat(10, 1fr);
-            }
+            :root { --gap: clamp(16px, 0.8vw, 36px); }
         }
         
         /* === ESTADOS ESPECIALES === */
@@ -619,6 +641,8 @@ try {
     </style>
 </head>
 <body>
+    <!-- Wrapper 4K fijo (4096x2160) -->
+    <div id="viewport-4k">
     <!-- Header Principal -->
     <header class="header-pantalla-grande">
         <div class="header-content">
@@ -650,56 +674,57 @@ try {
                 <i class="bi bi-check-circle"></i>
                 Puntos en Votación
             </h2>
-            
-            <?php if (empty($puntosHabilitados)): ?>
-                <div class="sin-votacion">
-                    <i class="bi bi-clock-history"></i>
-                    <h3>No hay votaciones activas</h3>
-                    <p>Los puntos aparecerán aquí cuando sean habilitados para votación</p>
-                </div>
-            <?php else: ?>
-                <?php foreach ($puntosHabilitados as $punto): ?>
-                    <div class="punto-votacion" data-punto-id="<?= $punto['id'] ?>">
-                        <div class="punto-numero">
-                            Punto <?= $punto['orden_punto'] ?>
-                        </div>
-                        
-                        <?php if ($punto['item_tipo'] === 'expediente'): ?>
-                            <div class="punto-expediente">
-                                <?= htmlspecialchars($punto['numero_expediente']) ?>
-                            </div>
-                            <div class="punto-descripcion">
-                                <?= htmlspecialchars($punto['extracto']) ?>
+            <div class="section-content scroll-area">
+                <?php if (empty($puntosHabilitados)): ?>
+                    <div class="sin-votacion">
+                        <i class="bi bi-clock-history"></i>
+                        <h3>No hay votaciones activas</h3>
+                        <p>Los puntos aparecerán aquí cuando sean habilitados para votación</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($puntosHabilitados as $punto): ?>
+                        <div class="punto-votacion" data-punto-id="<?= $punto['id'] ?>">
+                            <div class="punto-numero">
+                                Punto <?= $punto['orden_punto'] ?>
                             </div>
                             
-                            <!-- Resultados de votación -->
-                            <?php if (isset($resultadosVotacion[$punto['id']])): ?>
-                                <div class="resultados-grid">
-                                    <div class="resultado-item resultado-positivo">
-                                        <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['positivo'] ?></div>
-                                        <div class="resultado-label">Afirmativos</div>
+                            <?php if ($punto['item_tipo'] === 'expediente'): ?>
+                                <div class="punto-expediente">
+                                    <?= htmlspecialchars($punto['numero_expediente']) ?>
+                                </div>
+                                <div class="punto-descripcion">
+                                    <?= htmlspecialchars($punto['extracto']) ?>
+                                </div>
+                                
+                                <!-- Resultados de votación -->
+                                <?php if (isset($resultadosVotacion[$punto['id']])): ?>
+                                    <div class="resultados-grid">
+                                        <div class="resultado-item resultado-positivo">
+                                            <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['positivo'] ?></div>
+                                            <div class="resultado-label">Afirmativos</div>
+                                        </div>
+                                        <div class="resultado-item resultado-negativo">
+                                            <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['negativo'] ?></div>
+                                            <div class="resultado-label">Negativos</div>
+                                        </div>
+                                        <div class="resultado-item resultado-abstencion">
+                                            <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['abstencion'] ?></div>
+                                            <div class="resultado-label">Abstenciones</div>
+                                        </div>
                                     </div>
-                                    <div class="resultado-item resultado-negativo">
-                                        <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['negativo'] ?></div>
-                                        <div class="resultado-label">Negativos</div>
-                                    </div>
-                                    <div class="resultado-item resultado-abstencion">
-                                        <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['abstencion'] ?></div>
-                                        <div class="resultado-label">Abstenciones</div>
-                                    </div>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <div class="punto-expediente">
+                                    <?= htmlspecialchars($punto['numero_expediente']) ?>
+                                </div>
+                                <div class="punto-descripcion">
+                                    <?= htmlspecialchars($punto['extracto']) ?>
                                 </div>
                             <?php endif; ?>
-                        <?php else: ?>
-                            <div class="punto-expediente">
-                                <?= htmlspecialchars($punto['numero_expediente']) ?>
-                            </div>
-                            <div class="punto-descripcion">
-                                <?= htmlspecialchars($punto['extracto']) ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
         </section>
 
         <!-- Sección Hemiciclo -->
@@ -708,45 +733,28 @@ try {
                 <i class="bi bi-people"></i>
                 Presentes en Sesión
             </h2>
-            
-            <div class="hemiciclo-grid">
-                <?php 
-                // Crear lista completa de miembros (presentes + ausentes simulados)
-                $miembrosCompletos = [];
-                
-                // Agregar presentes
-                foreach ($presentes as $presente) {
-                    $miembrosCompletos[] = [
-                        'nombre' => $presente['first_name'] . ' ' . $presente['last_name'],
-                        'presente' => true,
-                        'iniciales' => substr($presente['first_name'], 0, 1) . substr($presente['last_name'], 0, 1)
-                    ];
-                }
-                
-                // Simular algunos ausentes para llenar el hemiciclo
-                $totalMiembros = max(16, count($presentes)); // Mínimo 16 para mostrar un hemiciclo completo
-                for ($i = count($presentes); $i < $totalMiembros; $i++) {
-                    $miembrosCompletos[] = [
-                        'nombre' => 'Miembro ' . ($i + 1),
-                        'presente' => false,
-                        'iniciales' => 'M' . ($i + 1)
-                    ];
-                }
-                ?>
-                
-                <?php foreach ($miembrosCompletos as $miembro): ?>
-                    <div class="miembro-hemiciclo <?= $miembro['presente'] ? 'miembro-presente' : '' ?>">
-                        <div class="miembro-avatar">
-                            <?= $miembro['iniciales'] ?>
+            <div class="section-content scroll-area">
+                <div class="hemiciclo-grid">
+                    <?php if (empty($presentes)): ?>
+                        <div class="text-center text-muted" style="grid-column: 1 / -1;">
+                            <i class="bi bi-people"></i> No hay editores presentes en la sesión
                         </div>
-                        <div class="miembro-nombre">
-                            <?= htmlspecialchars($miembro['nombre']) ?>
-                        </div>
-                        <div class="miembro-estado <?= $miembro['presente'] ? 'presente' : 'ausente' ?>">
-                            <?= $miembro['presente'] ? 'Presente' : 'Ausente' ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
+                    <?php else: ?>
+                        <?php foreach ($presentes as $presente): ?>
+                            <div class="miembro-hemiciclo miembro-presente">
+                                <div class="miembro-avatar">
+                                    <?= strtoupper(substr($presente['first_name'], 0, 1) . substr($presente['last_name'], 0, 1)) ?>
+                                </div>
+                                <div class="miembro-nombre">
+                                    <?= htmlspecialchars($presente['first_name'] . ' ' . $presente['last_name']) ?>
+                                </div>
+                                <div class="miembro-estado presente">
+                                    Presente
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
             </div>
         </section>
     </main>
@@ -769,6 +777,8 @@ try {
             </div>
         </div>
     </footer>
+
+    </div> <!-- /#viewport-4k -->
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
