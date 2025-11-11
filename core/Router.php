@@ -115,6 +115,14 @@ class Router {
         $controller = new VotacionController();
         
         switch ($action) {
+            case 'votar':
+                if (method_exists($controller, 'votar')) {
+                    $controller->votar();
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
             case 'sesion':
                 if ($id && method_exists($controller, 'sesion')) {
                     $controller->sesion($id);

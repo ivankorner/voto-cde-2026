@@ -604,47 +604,52 @@ function votar(tipoItem, itemId, tipoVoto, numeroExpediente = '', extracto = '')
             return;
         }
         
-        const formData = new FormData();
-        formData.append('sesion_id', SESION_ID);
-        formData.append('item_tipo', tipoItem);
-        formData.append('item_id', itemId);
-        formData.append('tipo_voto', tipoVoto);
-        formData.append('numero_expediente', numeroExpediente);
-        formData.append('extracto_expediente', extracto);
-        formData.append('csrf_token', CSRF_TOKEN);
+        // Crear datos como URLSearchParams en lugar de FormData
+        // Esto evita el error 415 en servidores compartidos
+        const datos = new URLSearchParams();
+        datos.append('sesion_id', SESION_ID);
+        datos.append('item_tipo', tipoItem);
+        datos.append('item_id', itemId);
+        datos.append('tipo_voto', tipoVoto);
+        datos.append('numero_expediente', numeroExpediente);
+        datos.append('extracto_expediente', extracto);
+        datos.append('csrf_token', CSRF_TOKEN);
         
-        fetch(BASE_URL + 'votacion/votar', {
+        const url = BASE_URL + 'votacion/votar';
+        
+        fetch(url, {
             method: 'POST',
-            body: formData,
+            body: datos,
             headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
                 'X-Requested-With': 'XMLHttpRequest'
-            }
+            },
+            credentials: 'same-origin'
         })
         .then(response => {
-            // Verificar si la respuesta es exitosa
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            // Verificar el content-type
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
-                throw new Error('Respuesta no válida del servidor');
+                return response.text().then(text => {
+                    throw new Error('Respuesta no válida del servidor');
+                });
             }
             
             return response.json();
         })
         .then(data => {
+            
             if (data.success) {
                 SweetAlerts.success('¡Voto registrado!', 'Su voto ha sido registrado exitosamente');
-                // Recargar la página para mostrar estado actualizado
                 location.reload();
             } else {
                 SweetAlerts.error('Error al votar', data.message || 'Error desconocido');
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             
             let errorMessage = 'No se pudo conectar con el servidor';
             if (error.message.includes('HTTP')) {

@@ -265,21 +265,23 @@ class VotacionController extends Controller {
             $this->requireLogin();
             
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                error_log("RECHAZADO: Método no es POST");
                 $this->sendJSON(['success' => false, 'message' => 'Método no permitido']);
                 return;
             }
-            
+
             $this->validateCSRF();
             
             $votacionModel = $this->loadModel('Votacion');
             
             // Verificar permisos
             if (!$votacionModel->puedeVotar($_SESSION['user_id'])) {
+                error_log("RECHAZADO: Usuario no puede votar");
                 $this->sendJSON(['success' => false, 'message' => 'Solo los editores pueden votar']);
                 return;
             }
         } catch (Exception $e) {
-            error_log("Error en votar() - Verificaciones iniciales: " . $e->getMessage());
+            error_log("ERROR en votar() - Verificaciones iniciales: " . $e->getMessage());
             $this->sendJSON(['success' => false, 'message' => 'Error interno del servidor']);
             return;
         }
@@ -325,23 +327,33 @@ class VotacionController extends Controller {
 
         // Verificar que el punto esté habilitado por el administrador (control progresivo)
         $itemTipo = $_POST['item_tipo'];
-        // Para actas usamos item_id=0; para expediente viene explícito; para otros tipos exigimos también habilitado si existiera
-        $itemId = isset($_POST['item_id']) ? (($_POST['item_id'] === '' || $_POST['item_id'] === null) ? null : $_POST['item_id']) : null;
+        $rawItemId = $_POST['item_id'] ?? null;
+        $itemId = null;
+        if ($rawItemId !== null && $rawItemId !== '') {
+            $itemId = is_numeric($rawItemId) ? (int)$rawItemId : $rawItemId;
+        }
+        // Para actas almacenamos 0 como identificador estable, evitando valores NULL que no pasan validación
         if ($itemTipo === 'actas') {
             $itemId = 0;
         }
         
         // Solo permitir votar si el punto correspondiente está habilitado
-        if (!$votacionModel->isPuntoHabilitado($_POST['sesion_id'], $itemTipo, $itemId)) {
+        $puntoHabilitado = $votacionModel->isPuntoHabilitado($_POST['sesion_id'], $itemTipo, $itemId);
+        if (!$puntoHabilitado) {
             $this->sendJSON(['success' => false, 'message' => 'Este punto aún no está habilitado para votación por el administrador']);
         }
-        
+
+        // Verificar si ya votó este punto específico ANTES de intentar registrar
+        if ($votacionModel->yaVoto($_POST['sesion_id'], $_SESSION['user_id'], $itemTipo, $itemId)) {
+            $this->sendJSON(['success' => false, 'message' => 'Ya ha emitido su voto para este punto. No se permite votar más de una vez.']);
+        }
+
         try {
             $data = [
                 'sesion_id' => $_POST['sesion_id'],
                 'user_id' => $_SESSION['user_id'],
                 'item_votacion_tipo' => $_POST['item_tipo'],
-                'item_votacion_id' => $_POST['item_id'] ?? null,
+                'item_votacion_id' => $itemId,
                 'numero_expediente' => $_POST['numero_expediente'] ?? '',
                 'extracto_expediente' => $_POST['extracto_expediente'] ?? '',
                 'tipo_voto' => $_POST['tipo_voto'],
@@ -352,13 +364,20 @@ class VotacionController extends Controller {
             $votoId = $votacionModel->registrarVoto($data);
             
             if ($votoId) {
-                // Obtener resultados actualizados
-                $resultados = $votacionModel->getResultadosItem(
-                    $_POST['sesion_id'], 
-                    $_POST['item_tipo'], 
-                    $_POST['item_id'] ?? null
-                );
-                
+                // Voto registrado exitosamente - intentar obtener resultados
+                $resultados = [];
+                try {
+                    $resultados = $votacionModel->getResultadosItem(
+                        $_POST['sesion_id'], 
+                        $itemTipo, 
+                        $itemId
+                    );
+                } catch (Exception $e) {
+                    error_log("Error al obtener resultados después del voto: " . $e->getMessage());
+                    // Continuar sin resultados - el voto ya está registrado
+                }
+
+                // SIEMPRE enviar success=true porque el voto se registró correctamente
                 $this->sendJSON([
                     'success' => true, 
                     'message' => 'Voto registrado exitosamente',
@@ -366,12 +385,32 @@ class VotacionController extends Controller {
                     'voto_id' => $votoId
                 ]);
             } else {
-                $this->sendJSON(['success' => false, 'message' => 'Ya ha votado este ítem o error al registrar voto']);
+                // Verificar si ya votó para dar mensaje más específico
+                $yaVoto = $votacionModel->yaVoto($_POST['sesion_id'], $_SESSION['user_id'], $_POST['item_tipo'], $itemId);
+                
+                if ($yaVoto) {
+                    $this->sendJSON(['success' => false, 'message' => 'Ya ha emitido su voto para este punto. No se permite votar más de una vez.']);
+                } else {
+                    $this->sendJSON(['success' => false, 'message' => 'Error al registrar el voto. Intente nuevamente.']);
+                }
             }
         } catch (Exception $e) {
-            error_log("Error en votar() - Registro de voto: " . $e->getMessage());
-            error_log("Datos del POST: " . print_r($_POST, true));
-            $this->sendJSON(['success' => false, 'message' => 'Error al procesar el voto. Intente nuevamente.']);
+            // Verificar si el voto se registró antes del error
+            $yaVoto = $votacionModel->yaVoto($_POST['sesion_id'], $_SESSION['user_id'], $_POST['item_tipo'], $itemId);
+            
+            if ($yaVoto) {
+                // El voto SÍ se registró, solo hubo error posterior
+                error_log("VOTO REGISTRADO pero error posterior: " . $e->getMessage());
+                $this->sendJSON([
+                    'success' => true, 
+                    'message' => 'Voto registrado exitosamente'
+                ]);
+            } else {
+                // El voto NO se registró
+                error_log("Error en votar() - Registro de voto: " . $e->getMessage());
+                error_log("Datos del POST: " . print_r($_POST, true));
+                $this->sendJSON(['success' => false, 'message' => 'Error al procesar el voto. Intente nuevamente.']);
+            }
         }
     }
     
@@ -764,6 +803,8 @@ class VotacionController extends Controller {
         echo $json;
         exit;
     }
+
+
     
     private function validateCSRF() {
         if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token'])) {

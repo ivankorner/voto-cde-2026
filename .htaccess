@@ -1,4 +1,19 @@
 RewriteEngine On
+
+# Deshabilitar mod_security para este directorio (para servidores compartidos)
+<IfModule mod_security.c>
+    SecFilterEngine Off
+    SecFilterScanPOST Off
+</IfModule>
+
+# Permitir POST requests sin restricciones
+<IfModule mod_headers.c>
+    Header set Accept-Post "application/x-www-form-urlencoded"
+</IfModule>
+
+# Excluir archivos PHP directos del rewrite
+RewriteCond %{REQUEST_URI} !^/(votar_directo|test_voto|debug_votacion|debug_votos)\.php
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]

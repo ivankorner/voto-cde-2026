@@ -1,5 +1,9 @@
 <?php
 // Index principal con manejo de errores para servidor compartido
+
+// Headers para permitir POST en servidores compartidos
+header('Accept: application/x-www-form-urlencoded, multipart/form-data');
+
 try {
     require_once 'config/config.php';
     require_once 'config/database.php';

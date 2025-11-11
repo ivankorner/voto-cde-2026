@@ -292,58 +292,105 @@ class Votacion extends Model {
     }
     
     public function yaVoto($sesionId, $userId, $tipoItem, $itemId) {
-        $query = "SELECT COUNT(*) as total 
-                  FROM votos 
-                  WHERE sesion_id = ? AND user_id = ? 
-                  AND item_votacion_tipo = ? AND item_votacion_id = ?";
+        // Manejar correctamente NULL en SQL (NULL = NULL es FALSE, necesitamos IS NULL)
+        if ($itemId === null) {
+            $query = "SELECT COUNT(*) as total 
+                      FROM votos 
+                      WHERE sesion_id = ? AND user_id = ? 
+                      AND item_votacion_tipo = ? AND item_votacion_id IS NULL";
+            $params = [$sesionId, $userId, $tipoItem];
+        } else {
+            $query = "SELECT COUNT(*) as total 
+                      FROM votos 
+                      WHERE sesion_id = ? AND user_id = ? 
+                      AND item_votacion_tipo = ? AND item_votacion_id = ?";
+            $params = [$sesionId, $userId, $tipoItem, $itemId];
+        }
         
         $stmt = $this->db->prepare($query);
-        $stmt->execute([$sesionId, $userId, $tipoItem, $itemId]);
+        $stmt->execute($params);
         
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result['total'] > 0;
     }
     
     public function getVotoUsuario($sesionId, $userId, $tipoItem, $itemId) {
-        $query = "SELECT tipo_voto, fecha_voto 
-                  FROM votos 
-                  WHERE sesion_id = ? AND user_id = ? 
-                  AND item_votacion_tipo = ? AND item_votacion_id = ?
-                  ORDER BY fecha_voto DESC 
-                  LIMIT 1";
+        // Manejar correctamente NULL en SQL (NULL = NULL es FALSE, necesitamos IS NULL)
+        if ($itemId === null) {
+            $query = "SELECT tipo_voto, fecha_voto 
+                      FROM votos 
+                      WHERE sesion_id = ? AND user_id = ? 
+                      AND item_votacion_tipo = ? AND item_votacion_id IS NULL
+                      ORDER BY fecha_voto DESC 
+                      LIMIT 1";
+            $params = [$sesionId, $userId, $tipoItem];
+        } else {
+            $query = "SELECT tipo_voto, fecha_voto 
+                      FROM votos 
+                      WHERE sesion_id = ? AND user_id = ? 
+                      AND item_votacion_tipo = ? AND item_votacion_id = ?
+                      ORDER BY fecha_voto DESC 
+                      LIMIT 1";
+            $params = [$sesionId, $userId, $tipoItem, $itemId];
+        }
         
         $stmt = $this->db->prepare($query);
-        $stmt->execute([$sesionId, $userId, $tipoItem, $itemId]);
+        $stmt->execute($params);
         
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result ?: null;
     }
     
     public function getResultadosItem($sesionId, $tipoItem, $itemId) {
-        $query = "SELECT 
-                    tipo_voto,
-                    COUNT(*) as cantidad,
-                    GROUP_CONCAT(CONCAT(u.first_name, ' ', u.last_name) SEPARATOR ', ') as votantes
-                  FROM votos v
-                  JOIN users u ON v.user_id = u.id
-                  WHERE v.sesion_id = ? AND v.item_votacion_tipo = ? AND v.item_votacion_id = ?
-                  GROUP BY tipo_voto";
+        // Manejar correctamente NULL en SQL
+        if ($itemId === null) {
+            $query = "SELECT 
+                        tipo_voto,
+                        COUNT(*) as cantidad,
+                        GROUP_CONCAT(CONCAT(u.first_name, ' ', u.last_name) SEPARATOR ', ') as votantes
+                      FROM votos v
+                      JOIN users u ON v.user_id = u.id
+                      WHERE v.sesion_id = ? AND v.item_votacion_tipo = ? AND v.item_votacion_id IS NULL
+                      GROUP BY tipo_voto";
+            $params = [$sesionId, $tipoItem];
+        } else {
+            $query = "SELECT 
+                        tipo_voto,
+                        COUNT(*) as cantidad,
+                        GROUP_CONCAT(CONCAT(u.first_name, ' ', u.last_name) SEPARATOR ', ') as votantes
+                      FROM votos v
+                      JOIN users u ON v.user_id = u.id
+                      WHERE v.sesion_id = ? AND v.item_votacion_tipo = ? AND v.item_votacion_id = ?
+                      GROUP BY tipo_voto";
+            $params = [$sesionId, $tipoItem, $itemId];
+        }
         
         $stmt = $this->db->prepare($query);
-        $stmt->execute([$sesionId, $tipoItem, $itemId]);
+        $stmt->execute($params);
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     public function getVotosDetallados($sesionId, $tipoItem, $itemId) {
-        $query = "SELECT v.*, u.first_name, u.last_name, u.username
-                  FROM votos v
-                  JOIN users u ON v.user_id = u.id
-                  WHERE v.sesion_id = ? AND v.item_votacion_tipo = ? AND v.item_votacion_id = ?
-                  ORDER BY v.fecha_voto ASC";
+        // Manejar correctamente NULL en SQL
+        if ($itemId === null) {
+            $query = "SELECT v.*, u.first_name, u.last_name, u.username
+                      FROM votos v
+                      JOIN users u ON v.user_id = u.id
+                      WHERE v.sesion_id = ? AND v.item_votacion_tipo = ? AND v.item_votacion_id IS NULL
+                      ORDER BY v.fecha_voto ASC";
+            $params = [$sesionId, $tipoItem];
+        } else {
+            $query = "SELECT v.*, u.first_name, u.last_name, u.username
+                      FROM votos v
+                      JOIN users u ON v.user_id = u.id
+                      WHERE v.sesion_id = ? AND v.item_votacion_tipo = ? AND v.item_votacion_id = ?
+                      ORDER BY v.fecha_voto ASC";
+            $params = [$sesionId, $tipoItem, $itemId];
+        }
         
         $stmt = $this->db->prepare($query);
-        $stmt->execute([$sesionId, $tipoItem, $itemId]);
+        $stmt->execute($params);
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -353,17 +400,29 @@ class Votacion extends Model {
     // ============================================
     
     public function actualizarHistorialVotacion($sesionId, $tipoItem, $itemId) {
-        // Contar votos
-        $query = "SELECT 
-                    SUM(CASE WHEN tipo_voto = 'positivo' THEN 1 ELSE 0 END) as positivos,
-                    SUM(CASE WHEN tipo_voto = 'negativo' THEN 1 ELSE 0 END) as negativos,
-                    SUM(CASE WHEN tipo_voto = 'abstencion' THEN 1 ELSE 0 END) as abstenciones,
-                    COUNT(*) as total_votos
-                  FROM votos 
-                  WHERE sesion_id = ? AND item_votacion_tipo = ? AND item_votacion_id = ?";
+        // Contar votos - Manejar correctamente NULL en SQL
+        if ($itemId === null) {
+            $query = "SELECT 
+                        SUM(CASE WHEN tipo_voto = 'positivo' THEN 1 ELSE 0 END) as positivos,
+                        SUM(CASE WHEN tipo_voto = 'negativo' THEN 1 ELSE 0 END) as negativos,
+                        SUM(CASE WHEN tipo_voto = 'abstencion' THEN 1 ELSE 0 END) as abstenciones,
+                        COUNT(*) as total_votos
+                      FROM votos 
+                      WHERE sesion_id = ? AND item_votacion_tipo = ? AND item_votacion_id IS NULL";
+            $params = [$sesionId, $tipoItem];
+        } else {
+            $query = "SELECT 
+                        SUM(CASE WHEN tipo_voto = 'positivo' THEN 1 ELSE 0 END) as positivos,
+                        SUM(CASE WHEN tipo_voto = 'negativo' THEN 1 ELSE 0 END) as negativos,
+                        SUM(CASE WHEN tipo_voto = 'abstencion' THEN 1 ELSE 0 END) as abstenciones,
+                        COUNT(*) as total_votos
+                      FROM votos 
+                      WHERE sesion_id = ? AND item_votacion_tipo = ? AND item_votacion_id = ?";
+            $params = [$sesionId, $tipoItem, $itemId];
+        }
         
         $stmt = $this->db->prepare($query);
-        $stmt->execute([$sesionId, $tipoItem, $itemId]);
+        $stmt->execute($params);
         $resultados = $stmt->fetch(PDO::FETCH_ASSOC);
         
         // Obtener total de presentes
