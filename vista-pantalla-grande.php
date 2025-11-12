@@ -28,9 +28,10 @@ try {
         ];
     }
     
-    // Obtener puntos habilitados para votación
+    // Obtener TODOS los puntos habilitados para votación (los que están abiertos ahora)
     $puntosHabilitados = [];
     if ($sesion['id'] > 0) {
+        // Obtener todos los puntos habilitados actualmente
         $stmt = $db->prepare("
             SELECT ph.*, 
                    COALESCE(ph.numero_expediente, 'Sin número') as numero_expediente,
@@ -58,11 +59,19 @@ try {
         $presentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
-    // Obtener resultados de votaciones
+    // Obtener resultados de votaciones y calcular total de votos por punto
     $resultadosVotacion = [];
     if ($sesion['id'] > 0 && !empty($puntosHabilitados)) {
-        foreach ($puntosHabilitados as $punto) {
-            if ($punto['item_tipo'] === 'expediente' && $punto['item_id'] > 0) {
+        foreach ($puntosHabilitados as &$punto) {
+            // Determinar el item_id según el tipo
+            $itemIdParaQuery = null;
+            if ($punto['item_tipo'] === 'expediente') {
+                $itemIdParaQuery = $punto['item_id'];
+            } elseif ($punto['item_tipo'] === 'actas') {
+                $itemIdParaQuery = 0;
+            }
+            
+            if ($itemIdParaQuery !== null) {
                 $stmt = $db->prepare("
                     SELECT 
                         tipo_voto,
@@ -70,29 +79,49 @@ try {
                         GROUP_CONCAT(CONCAT(u.first_name, ' ', u.last_name) SEPARATOR ', ') as votantes
                     FROM votos v
                     JOIN users u ON v.user_id = u.id
-                    WHERE v.sesion_id = ? AND v.item_votacion_id = ? AND v.item_votacion_tipo = 'expediente'
+                    WHERE v.sesion_id = ? AND v.item_votacion_id = ? AND v.item_votacion_tipo = ?
                     GROUP BY tipo_voto
                 ");
-                $stmt->execute([$sesion['id'], $punto['item_id']]);
+                $stmt->execute([$sesion['id'], $itemIdParaQuery, $punto['item_tipo']]);
                 $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 $resultadosVotacion[$punto['id']] = [
                     'positivo' => 0,
                     'negativo' => 0,
                     'abstencion' => 0,
-                    'votantes' => []
+                    'votantes' => [],
+                    'total_votos' => 0
                 ];
                 
                 foreach ($resultados as $resultado) {
                     $resultadosVotacion[$punto['id']][$resultado['tipo_voto']] = $resultado['cantidad'];
                     $resultadosVotacion[$punto['id']]['votantes'][$resultado['tipo_voto']] = $resultado['votantes'];
+                    $resultadosVotacion[$punto['id']]['total_votos'] += $resultado['cantidad'];
                 }
+                
+                // Guardar el total de votos en el punto para ordenamiento
+                $punto['total_votos'] = $resultadosVotacion[$punto['id']]['total_votos'];
+            } else {
+                $punto['total_votos'] = 0;
             }
         }
+        unset($punto); // Romper la referencia
+        
+        // ORDENAR: Primero el punto con MENOS votos (el que se está votando ahora)
+        // Luego el resto por orden ascendente de puntos
+        usort($puntosHabilitados, function($a, $b) {
+            // Si tienen diferente cantidad de votos, el de menos votos primero
+            if ($a['total_votos'] !== $b['total_votos']) {
+                return $a['total_votos'] <=> $b['total_votos'];
+            }
+            // Si tienen la misma cantidad, ordenar por orden_punto
+            return $a['orden_punto'] <=> $b['orden_punto'];
+        });
     }
     
 } catch (Exception $e) {
     error_log("Error en vista pantalla grande: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     $sesion = [
         'id' => 0,
         'nombre' => 'Error de conexión',
@@ -303,12 +332,12 @@ try {
         /* === GRID PRINCIPAL === */
         .main-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+            grid-template-columns: 2fr 1fr; /* Votación ocupa 2/3, presentes 1/3 */
             gap: var(--gap);
             padding: calc(var(--pad) * 2);
             max-width: 100%;
             margin: 0 auto;
-            height: calc(100vh - var(--header-h));
+            height: calc(100vh - var(--header-h) - 80px); /* Espacio para footer */
         }
         
         /* === SECCIÓN DE VOTACIÓN === */
@@ -341,37 +370,76 @@ try {
         .punto-votacion {
             background: white;
             border-radius: 20px;
-            padding: calc(var(--pad) * 1.6);
-            margin-bottom: var(--pad);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            border-left: 8px solid #667eea;
+            padding: calc(var(--pad) * 2);
+            margin-bottom: calc(var(--pad) * 1.5);
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
+            border-left: 12px solid #667eea;
             transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .punto-votacion::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        /* Indicador de votación activa */
+        .votacion-activa {
+            animation: pulse-border 2s infinite;
+        }
+        
+        @keyframes pulse-border {
+            0%, 100% { 
+                border-left-color: #667eea;
+                box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
+            }
+            50% { 
+                border-left-color: #28a745;
+                box-shadow: 0 20px 45px rgba(40, 167, 69, 0.3);
+            }
         }
         
         .punto-votacion:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            transform: translateY(-5px) scale(1.01);
+            box-shadow: 0 25px 50px rgba(102, 126, 234, 0.25);
         }
         
         .punto-numero {
-            font-size: clamp(16px, 1.2vw, 24px);
-            font-weight: 700;
+            font-size: clamp(18px, 1.5vw, 30px);
+            font-weight: 800;
             color: #667eea;
             margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .punto-numero::before {
+            content: '●';
+            animation: pulse 2s infinite;
         }
         
         .punto-expediente {
-            font-size: clamp(16px, 1.2vw, 24px);
-            font-weight: 600;
+            font-size: clamp(20px, 1.6vw, 32px);
+            font-weight: 700;
             color: var(--text-primary);
-            margin-bottom: 1rem;
+            margin-bottom: 1.2rem;
+            line-height: 1.3;
         }
         
         .punto-descripcion {
-            font-size: clamp(14px, 1vw, 20px);
+            font-size: clamp(16px, 1.2vw, 24px);
             color: var(--text-secondary);
-            line-height: 1.6;
-            margin-bottom: var(--pad);
+            line-height: 1.7;
+            margin-bottom: calc(var(--pad) * 1.5);
         }
 
         /* zona scrollable dentro de votación/hemiciclo */
@@ -385,39 +453,57 @@ try {
         .resultados-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: var(--gap);
-            margin-top: var(--pad);
+            gap: calc(var(--gap) * 1.2);
+            margin-top: calc(var(--pad) * 1.5);
         }
         
         .resultado-item {
-            background: white;
-            border-radius: 15px;
-            padding: calc(var(--pad) * 1.2);
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-radius: 20px;
+            padding: calc(var(--pad) * 1.8);
             text-align: center;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
             transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .resultado-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            transition: height 0.3s ease;
         }
         
         .resultado-item:hover {
-            transform: translateY(-3px);
+            transform: translateY(-5px) scale(1.05);
         }
         
-        .resultado-positivo {
-            border-top: 5px solid #28a745;
+        .resultado-item:hover::before {
+            height: 12px;
         }
         
-        .resultado-negativo {
-            border-top: 5px solid #dc3545;
+        .resultado-positivo::before {
+            background: linear-gradient(90deg, #28a745, #20c997);
         }
         
-        .resultado-abstencion {
-            border-top: 5px solid #ffc107;
+        .resultado-negativo::before {
+            background: linear-gradient(90deg, #dc3545, #e83e8c);
+        }
+        
+        .resultado-abstencion::before {
+            background: linear-gradient(90deg, #ffc107, #fd7e14);
         }
         
         .resultado-numero {
-            font-size: clamp(24px, 2.4vw, 56px);
-            font-weight: 800;
+            font-size: clamp(32px, 3vw, 72px);
+            font-weight: 900;
             margin-bottom: 0.5rem;
+            line-height: 1;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
         }
         
         .resultado-positivo .resultado-numero {
@@ -433,19 +519,19 @@ try {
         }
         
         .resultado-label {
-            font-size: 1.2rem;
-            font-weight: 600;
+            font-size: clamp(14px, 1.1vw, 22px);
+            font-weight: 700;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
         }
         
-        /* === HEMICICLO === */
+        /* === HEMICICLO (COMPACTO) === */
         .hemiciclo-section {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
             border-radius: 30px;
-            padding: calc(var(--pad) * 2);
+            padding: calc(var(--pad) * 1.5);
             box-shadow: var(--shadow-lg);
             border: 1px solid var(--glass-border);
             height: 100%;
@@ -454,52 +540,53 @@ try {
         
         .hemiciclo-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: var(--gap);
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: calc(var(--gap) * 0.8);
             margin-top: var(--pad);
         }
         
         .miembro-hemiciclo {
             background: white;
-            border-radius: 15px;
-            padding: calc(var(--pad) * 1.2);
+            border-radius: 12px;
+            padding: calc(var(--pad) * 0.8);
             text-align: center;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
             transition: all 0.3s ease;
-            border: 3px solid #e9ecef;
+            border: 2px solid #e9ecef;
         }
         
         .miembro-presente {
             border-color: #28a745;
-            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
         }
         
         .miembro-avatar {
-            width: var(--avatar);
-            height: var(--avatar);
+            width: clamp(40px, 2.5vw, 60px);
+            height: clamp(40px, 2.5vw, 60px);
             background: var(--primary-gradient);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 1rem;
+            margin: 0 auto 0.6rem;
             color: white;
-            font-size: clamp(16px, 1.4vw, 28px);
+            font-size: clamp(14px, 1.2vw, 22px);
             font-weight: 700;
         }
         
         .miembro-nombre {
-            font-size: clamp(14px, 1vw, 20px);
+            font-size: clamp(12px, 0.85vw, 16px);
             font-weight: 600;
             color: var(--text-primary);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
+            line-height: 1.2;
         }
         
         .miembro-estado {
-            padding: calc(var(--pad) * 0.4) calc(var(--pad) * 0.8);
-            border-radius: 25px;
-            font-size: clamp(12px, 0.9vw, 18px);
-            font-weight: 500;
+            padding: calc(var(--pad) * 0.3) calc(var(--pad) * 0.6);
+            border-radius: 20px;
+            font-size: clamp(10px, 0.75vw, 14px);
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -582,9 +669,13 @@ try {
         .footer-pantalla-grande {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
-            padding: 2rem 3rem;
-            margin-top: 3rem;
+            padding: 1rem 3rem;
             border-top: 2px solid var(--glass-border);
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
         }
         
         .footer-content {
@@ -596,16 +687,27 @@ try {
         }
         
         .ultima-actualizacion {
-            font-size: 1.2rem;
+            font-size: clamp(12px, 0.9vw, 18px);
             color: var(--text-secondary);
+            font-weight: 500;
         }
         
         .auto-refresh-info {
-            font-size: 1.2rem;
+            font-size: clamp(12px, 0.9vw, 18px);
             color: var(--text-secondary);
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .auto-refresh-info i {
+            animation: spin 2s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
         
         /* === Ajustes mínimos extra grandes === */
@@ -666,59 +768,82 @@ try {
         </div>
     </header>
 
+    <!-- DEBUG INFO -->
+    <!-- 
+    Sesión ID: <?= $sesion['id'] ?>
+    Estado: <?= $sesion['estado'] ?>
+    Puntos habilitados: <?= count($puntosHabilitados) ?>
+    <?php if (!empty($puntosHabilitados)): ?>
+        <?php foreach ($puntosHabilitados as $idx => $p): ?>
+        Punto <?= $idx + 1 ?>: Orden=<?= $p['orden_punto'] ?>, Tipo=<?= $p['item_tipo'] ?>, ID=<?= $p['item_id'] ?>, Exp=<?= $p['numero_expediente'] ?>
+        <?php endforeach; ?>
+    <?php endif; ?>
+    Presentes: <?= count($presentes) ?>
+    Resultados cargados: <?= count($resultadosVotacion) ?>
+    -->
+
     <!-- Contenido Principal -->
     <main class="main-grid">
         <!-- Sección de Votación -->
         <section class="votacion-section">
             <h2 class="section-title">
                 <i class="bi bi-check-circle"></i>
-                Puntos en Votación
+                Votación en Curso
+                <span style="background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 0.4rem 1.2rem; border-radius: 25px; margin-left: 1rem; font-size: clamp(12px, 1vw, 20px); animation: pulse-glow 2s infinite;">
+                    <i class="bi bi-broadcast"></i> EN VIVO
+                </span>
             </h2>
             <div class="section-content scroll-area">
                 <?php if (empty($puntosHabilitados)): ?>
                     <div class="sin-votacion">
-                        <i class="bi bi-clock-history"></i>
-                        <h3>No hay votaciones activas</h3>
-                        <p>Los puntos aparecerán aquí cuando sean habilitados para votación</p>
+                        <i class="bi bi-hourglass-split"></i>
+                        <h3>Esperando votación</h3>
+                        <p>El punto que se está votando aparecerá aquí automáticamente</p>
+                        <p style="margin-top: 1rem; font-size: 1.2rem; color: #6c757d;">
+                            <i class="bi bi-info-circle"></i> 
+                            Los puntos se ordenan automáticamente: primero el que se está votando, luego los ya votados
+                        </p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($puntosHabilitados as $punto): ?>
-                        <div class="punto-votacion" data-punto-id="<?= $punto['id'] ?>">
+                    <?php 
+                    $totalPresentes = count($presentes);
+                    foreach ($puntosHabilitados as $index => $punto): 
+                        $esActual = ($index === 0); // El primero es el actual (menos votos)
+                        $totalVotosPunto = $punto['total_votos'] ?? 0;
+                        $porcentaje = $totalPresentes > 0 ? round(($totalVotosPunto / $totalPresentes) * 100) : 0;
+                    ?>
+                        <div class="punto-votacion <?= $esActual ? 'votacion-activa' : '' ?>" data-punto-id="<?= $punto['id'] ?>" style="<?= $esActual ? '' : 'opacity: 0.85; border-left-color: #95a5a6;' ?>">
                             <div class="punto-numero">
-                                Punto <?= $punto['orden_punto'] ?>
+                                <?= $esActual ? '� VOTANDO AHORA' : '✅ Votado' ?> - Punto <?= $punto['orden_punto'] ?>
+                                <?php if ($totalPresentes > 0): ?>
+                                    <span style="float: right; font-size: clamp(12px, 1vw, 18px); color: #6c757d;">
+                                        <?= $totalVotosPunto ?>/<?= $totalPresentes ?> votos (<?= $porcentaje ?>%)
+                                    </span>
+                                <?php endif; ?>
                             </div>
                             
-                            <?php if ($punto['item_tipo'] === 'expediente'): ?>
-                                <div class="punto-expediente">
-                                    <?= htmlspecialchars($punto['numero_expediente']) ?>
-                                </div>
-                                <div class="punto-descripcion">
-                                    <?= htmlspecialchars($punto['extracto']) ?>
-                                </div>
-                                
-                                <!-- Resultados de votación -->
-                                <?php if (isset($resultadosVotacion[$punto['id']])): ?>
-                                    <div class="resultados-grid">
-                                        <div class="resultado-item resultado-positivo">
-                                            <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['positivo'] ?></div>
-                                            <div class="resultado-label">Afirmativos</div>
-                                        </div>
-                                        <div class="resultado-item resultado-negativo">
-                                            <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['negativo'] ?></div>
-                                            <div class="resultado-label">Negativos</div>
-                                        </div>
-                                        <div class="resultado-item resultado-abstencion">
-                                            <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['abstencion'] ?></div>
-                                            <div class="resultado-label">Abstenciones</div>
-                                        </div>
+                            <div class="punto-expediente">
+                                <?= htmlspecialchars($punto['numero_expediente']) ?>
+                            </div>
+                            <div class="punto-descripcion">
+                                <?= htmlspecialchars($punto['extracto']) ?>
+                            </div>
+                            
+                            <!-- Resultados de votación (para todos los tipos) -->
+                            <?php if (isset($resultadosVotacion[$punto['id']])): ?>
+                                <div class="resultados-grid">
+                                    <div class="resultado-item resultado-positivo">
+                                        <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['positivo'] ?></div>
+                                        <div class="resultado-label">Afirmativos</div>
                                     </div>
-                                <?php endif; ?>
-                            <?php else: ?>
-                                <div class="punto-expediente">
-                                    <?= htmlspecialchars($punto['numero_expediente']) ?>
-                                </div>
-                                <div class="punto-descripcion">
-                                    <?= htmlspecialchars($punto['extracto']) ?>
+                                    <div class="resultado-item resultado-negativo">
+                                        <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['negativo'] ?></div>
+                                        <div class="resultado-label">Negativos</div>
+                                    </div>
+                                    <div class="resultado-item resultado-abstencion">
+                                        <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['abstencion'] ?></div>
+                                        <div class="resultado-label">Abstenciones</div>
+                                    </div>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -731,7 +856,10 @@ try {
         <section class="hemiciclo-section">
             <h2 class="section-title">
                 <i class="bi bi-people"></i>
-                Presentes en Sesión
+                Presentes 
+                <span style="background: #28a745; color: white; padding: 0.3rem 1rem; border-radius: 20px; margin-left: 1rem; font-size: clamp(14px, 1.2vw, 24px);">
+                    <?= count($presentes) ?>
+                </span>
             </h2>
             <div class="section-content scroll-area">
                 <div class="hemiciclo-grid">
@@ -773,7 +901,7 @@ try {
             </div>
             <div class="auto-refresh-info">
                 <i class="bi bi-arrow-repeat"></i>
-                Actualización automática cada 5 segundos
+                Actualización automática cada 3 segundos
             </div>
         </div>
     </footer>
@@ -888,11 +1016,13 @@ try {
             actualizarFechaHora();
             actualizarTimestamp();
             
-            // Configurar intervalos
-            setInterval(actualizarFechaHora, 1000); // Cada segundo
-            setInterval(verificarMociones, 3000); // Cada 3 segundos
-            setInterval(actualizarContenido, 30000); // Cada 30 segundos
-            setInterval(actualizarTimestamp, 5000); // Cada 5 segundos
+            // Configurar intervalos - Actualización más frecuente
+            setInterval(actualizarFechaHora, 1000);     // Cada 1 segundo (reloj)
+            setInterval(verificarMociones, 2000);       // Cada 2 segundos (mociones)
+            setInterval(actualizarContenido, 3000);     // Cada 3 segundos (votaciones y presentes)
+            setInterval(actualizarTimestamp, 1000);     // Cada 1 segundo (timestamp)
+            
+            console.log('Vista pantalla grande iniciada - Actualización cada 3 segundos');
         });
     </script>
 </body>
