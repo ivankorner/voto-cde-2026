@@ -526,6 +526,69 @@ try {
             letter-spacing: 1.5px;
         }
         
+        .resultado-votantes {
+            font-size: clamp(11px, 0.8vw, 16px);
+            color: var(--text-secondary);
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid #e9ecef;
+            line-height: 2;
+            max-height: 150px;
+            overflow-y: auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .badge-votante {
+            display: inline-block;
+            padding: 0.6rem 1rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: clamp(10px, 0.9vw, 15px);
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideInBadge 0.4s ease-out;
+            transition: all 0.3s ease;
+        }
+        
+        .badge-votante:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+        }
+        
+        .badge-positivo {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: 2px solid #1e7e34;
+        }
+        
+        .badge-negativo {
+            background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
+            color: white;
+            border: 2px solid #a71d2a;
+        }
+        
+        .badge-abstencion {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: #333;
+            border: 2px solid #e0a800;
+        }
+        
+        @keyframes slideInBadge {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
         /* === HEMICICLO (COMPACTO) === */
         .hemiciclo-section {
             background: var(--glass-bg);
@@ -834,15 +897,45 @@ try {
                                 <div class="resultados-grid">
                                     <div class="resultado-item resultado-positivo">
                                         <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['positivo'] ?></div>
-                                        <div class="resultado-label">Afirmativos</div>
+                                        <div class="resultado-label">✓ Afirmativos</div>
+                                        <?php if (!empty($resultadosVotacion[$punto['id']]['votantes']['positivo'])): ?>
+                                            <div class="resultado-votantes">
+                                                <?php 
+                                                $votantesPositivo = array_filter(array_map('trim', explode(',', $resultadosVotacion[$punto['id']]['votantes']['positivo'])));
+                                                foreach ($votantesPositivo as $votante): 
+                                                ?>
+                                                    <span class="badge-votante badge-positivo"><?= htmlspecialchars($votante) ?></span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="resultado-item resultado-negativo">
                                         <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['negativo'] ?></div>
-                                        <div class="resultado-label">Negativos</div>
+                                        <div class="resultado-label">✕ Negativos</div>
+                                        <?php if (!empty($resultadosVotacion[$punto['id']]['votantes']['negativo'])): ?>
+                                            <div class="resultado-votantes">
+                                                <?php 
+                                                $votantesNegativo = array_filter(array_map('trim', explode(',', $resultadosVotacion[$punto['id']]['votantes']['negativo'])));
+                                                foreach ($votantesNegativo as $votante): 
+                                                ?>
+                                                    <span class="badge-votante badge-negativo"><?= htmlspecialchars($votante) ?></span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="resultado-item resultado-abstencion">
                                         <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['abstencion'] ?></div>
-                                        <div class="resultado-label">Abstenciones</div>
+                                        <div class="resultado-label">⊗ Abstenciones</div>
+                                        <?php if (!empty($resultadosVotacion[$punto['id']]['votantes']['abstencion'])): ?>
+                                            <div class="resultado-votantes">
+                                                <?php 
+                                                $votantesAbstencion = array_filter(array_map('trim', explode(',', $resultadosVotacion[$punto['id']]['votantes']['abstencion'])));
+                                                foreach ($votantesAbstencion as $votante): 
+                                                ?>
+                                                    <span class="badge-votante badge-abstencion"><?= htmlspecialchars($votante) ?></span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php endif; ?>
