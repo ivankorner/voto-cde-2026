@@ -235,7 +235,7 @@ try {
             position: sticky;
             top: 0;
             z-index: 1000;
-            padding: calc(var(--pad) * 1.5) 0;
+            
             min-height: var(--header-h);
         }
         
@@ -332,9 +332,9 @@ try {
         /* === GRID PRINCIPAL === */
         .main-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr; /* Votación ocupa 2/3, presentes 1/3 */
+            grid-template-columns: 1fr; /* Solo votación a lo ancho */
             gap: var(--gap);
-            padding: calc(var(--pad) * 2);
+            padding: calc(var(--pad) * 1);
             max-width: 100%;
             margin: 0 auto;
             height: calc(100vh - var(--header-h) - 80px); /* Espacio para footer */
@@ -345,7 +345,7 @@ try {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
             border-radius: 30px;
-            padding: calc(var(--pad) * 2);
+            padding: calc(var(--pad) * 1);
             box-shadow: var(--shadow-lg);
             border: 1px solid var(--glass-border);
             height: 100%;
@@ -370,7 +370,7 @@ try {
         .punto-votacion {
             background: white;
             border-radius: 20px;
-            padding: calc(var(--pad) * 2);
+            padding: calc(var(--pad) * 1);
             margin-bottom: calc(var(--pad) * 1.5);
             box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
             border-left: 12px solid #667eea;
@@ -431,9 +431,10 @@ try {
             font-size: clamp(20px, 1.6vw, 32px);
             font-weight: 700;
             color: var(--text-primary);
-            margin-bottom: 1.2rem;
+            margin-bottom: 0.2rem;
             line-height: 1.3;
         }
+
         
         .punto-descripcion {
             font-size: clamp(16px, 1.2vw, 24px);
@@ -810,23 +811,36 @@ try {
     <div id="viewport-4k">
     <!-- Header Principal -->
     <header class="header-pantalla-grande">
-        <div class="header-content">
-            <div class="logo-section">
-                <div class="logo-circle">
-                    <i class="bi bi-building"></i>
-                </div>
-                <div>
-                    <h1 class="titulo-principal">CONCEJO DELIBERANTE</h1>
-                    <p class="subtitulo-principal">Sesión de Votación en Vivo</p>
-                </div>
+      
+        
+        <!-- Sección Presentes en el Header -->
+        <div style="border-top: 1px solid var(--glass-border); background: rgba(40, 167, 69, 0.05);">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.8rem; padding: 0 calc(var(--pad) * 2);">
+                <i class="bi bi-people" style="font-size: 1.5rem; color: #28a745;"></i>
+                <span style="font-size: clamp(14px, 1.2vw, 20px); font-weight: 700; color: var(--text-primary);">
+                    Presentes en la Sesión
+                </span>
+                <span style="background: #28a745; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: clamp(12px, 1vw, 18px); font-weight: 600;">
+                    <?= count($presentes) ?> Concejales
+                </span>
             </div>
-            
-            <div class="info-sesion">
-                <div class="fecha-hora" id="fecha-hora-actual"></div>
-                <div class="estado-sesion estado-<?= $sesion['estado'] ?>">
-                    <i class="bi bi-<?= $sesion['estado'] === 'activa' ? 'play-circle' : ($sesion['estado'] === 'pausada' ? 'pause-circle' : 'stop-circle') ?>"></i>
-                    <?= ucfirst($sesion['estado']) ?>
-                </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0 calc(var(--pad) * 2) calc(var(--pad) * 1.5) calc(var(--pad) * 2);">
+                <?php if (empty($presentes)): ?>
+                    <span style="color: #6c757d; font-size: clamp(12px, 0.9vw, 16px);">
+                        <i class="bi bi-info-circle"></i> No hay Concejales presentes en la sesión
+                    </span>
+                <?php else: ?>
+                    <?php foreach ($presentes as $presente): ?>
+                        <div style="background: white; border-radius: 50px; padding: 0.5rem 1rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); display: flex; align-items: center; gap: 0.6rem; border-left: 4px solid #28a745;">
+                            <div style="width: 28px; height: 28px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 700;">
+                                <?= strtoupper(substr($presente['first_name'], 0, 1) . substr($presente['last_name'], 0, 1)) ?>
+                            </div>
+                            <span style="font-size: clamp(11px, 0.85vw, 14px); font-weight: 600; color: var(--text-primary); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
+                                <?= htmlspecialchars($presente['first_name'] . ' ' . $presente['last_name']) ?>
+                            </span>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
     </header>
@@ -852,9 +866,7 @@ try {
             <h2 class="section-title">
                 <i class="bi bi-check-circle"></i>
                 Votación en Curso
-                <span style="background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 0.4rem 1.2rem; border-radius: 25px; margin-left: 1rem; font-size: clamp(12px, 1vw, 20px); animation: pulse-glow 2s infinite;">
-                    <i class="bi bi-broadcast"></i> EN VIVO
-                </span>
+                
             </h2>
             <div class="section-content scroll-area">
                 <?php if (empty($puntosHabilitados)): ?>
@@ -942,40 +954,6 @@ try {
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
-            </div>
-        </section>
-
-        <!-- Sección Hemiciclo -->
-        <section class="hemiciclo-section">
-            <h2 class="section-title">
-                <i class="bi bi-people"></i>
-                Presentes 
-                <span style="background: #28a745; color: white; padding: 0.3rem 1rem; border-radius: 20px; margin-left: 1rem; font-size: clamp(14px, 1.2vw, 24px);">
-                    <?= count($presentes) ?>
-                </span>
-            </h2>
-            <div class="section-content scroll-area">
-                <div class="hemiciclo-grid">
-                    <?php if (empty($presentes)): ?>
-                        <div class="text-center text-muted" style="grid-column: 1 / -1;">
-                            <i class="bi bi-people"></i> No hay editores presentes en la sesión
-                        </div>
-                    <?php else: ?>
-                        <?php foreach ($presentes as $presente): ?>
-                            <div class="miembro-hemiciclo miembro-presente">
-                                <div class="miembro-avatar">
-                                    <?= strtoupper(substr($presente['first_name'], 0, 1) . substr($presente['last_name'], 0, 1)) ?>
-                                </div>
-                                <div class="miembro-nombre">
-                                    <?= htmlspecialchars($presente['first_name'] . ' ' . $presente['last_name']) ?>
-                                </div>
-                                <div class="miembro-estado presente">
-                                    Presente
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
             </div>
         </section>
     </main>
