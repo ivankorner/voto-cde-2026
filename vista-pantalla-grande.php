@@ -350,7 +350,7 @@ try {
             padding: calc(var(--pad) * 1);
             max-width: 100%;
             margin: 0 auto;
-            height: calc(100vh - var(--header-h) - 50px); /* Espacio para footer */
+            height: calc(100vh - var(--header-h) - 80px); /* Espacio para footer */
         }
         
         /* === SECCIÓN DE VOTACIÓN === */
