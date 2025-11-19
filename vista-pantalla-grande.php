@@ -337,7 +337,7 @@ try {
             padding: calc(var(--pad) * 1);
             max-width: 100%;
             margin: 0 auto;
-            height: calc(100vh - var(--header-h) - 80px); /* Espacio para footer */
+            height: calc(100vh - var(--header-h) - 50px); /* Espacio para footer */
         }
         
         /* === SECCIÓN DE VOTACIÓN === */
@@ -452,21 +452,24 @@ try {
         
         /* === RESULTADOS DE VOTACIÓN === */
         .resultados-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: calc(var(--gap) * 1.2);
-            margin-top: calc(var(--pad) * 1.5);
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-start;
+            gap: calc(var(--gap) * 0.8);
+            margin-top: calc(var(--pad) * 0.8);
         }
         
         .resultado-item {
             background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-            border-radius: 20px;
-            padding: calc(var(--pad) * 1.8);
+            border-radius: 16px;
+            padding: calc(var(--pad) * 0.9);
             text-align: center;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
+            flex: 1;
+            min-width: 0;
         }
         
         .resultado-item::before {
@@ -475,16 +478,17 @@ try {
             top: 0;
             left: 0;
             right: 0;
-            height: 6px;
+            height: 4px;
             transition: height 0.3s ease;
         }
         
         .resultado-item:hover {
-            transform: translateY(-5px) scale(1.05);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
         }
         
         .resultado-item:hover::before {
-            height: 12px;
+            height: 8px;
         }
         
         .resultado-positivo::before {
@@ -500,11 +504,11 @@ try {
         }
         
         .resultado-numero {
-            font-size: clamp(32px, 3vw, 72px);
+            font-size: clamp(28px, 2.2vw, 48px);
             font-weight: 900;
-            margin-bottom: 0.5rem;
             line-height: 1;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.08);
+            display: inline-block;
         }
         
         .resultado-positivo .resultado-numero {
@@ -520,63 +524,77 @@ try {
         }
         
         .resultado-label {
-            font-size: clamp(14px, 1.1vw, 22px);
+            font-size: clamp(11px, 0.9vw, 16px);
             font-weight: 700;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 1.5px;
+            letter-spacing: 1px;
+            display: block;
+            margin-top: 0.2rem;
         }
         
         .resultado-votantes {
-            font-size: clamp(11px, 0.8vw, 16px);
+            font-size: clamp(10px, 0.75vw, 14px);
             color: var(--text-secondary);
-            margin-top: 0.8rem;
-            padding-top: 0.8rem;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
             border-top: 1px solid #e9ecef;
-            line-height: 2;
-            max-height: 150px;
+            max-height: 120px;
             overflow-y: auto;
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
+            gap: 0.4rem;
             justify-content: center;
+        }
+        
+        .resultado-votantes::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .resultado-votantes::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .resultado-votantes::-webkit-scrollbar-thumb {
+            background: #ddd;
+            border-radius: 2px;
         }
         
         .badge-votante {
             display: inline-block;
-            padding: 0.6rem 1rem;
-            border-radius: 50px;
+            padding: 0.4rem 0.8rem;
+            border-radius: 40px;
             font-weight: 600;
-            font-size: clamp(10px, 0.9vw, 15px);
+            font-size: clamp(9px, 0.75vw, 13px);
             white-space: nowrap;
             text-overflow: ellipsis;
             overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
             animation: slideInBadge 0.4s ease-out;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
         }
         
         .badge-votante:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
         }
         
         .badge-positivo {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
-            border: 2px solid #1e7e34;
+            border: 1px solid #1e7e34;
         }
         
         .badge-negativo {
             background: linear-gradient(135deg, #dc3545 0%, #e83e8c 100%);
             color: white;
-            border: 2px solid #a71d2a;
+            border: 1px solid #a71d2a;
         }
         
         .badge-abstencion {
             background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
             color: #333;
-            border: 2px solid #e0a800;
+            border: 1px solid #e0a800;
         }
         
         @keyframes slideInBadge {
@@ -882,12 +900,12 @@ try {
                 <?php else: ?>
                     <?php 
                     $totalPresentes = count($presentes);
-                    foreach ($puntosHabilitados as $index => $punto): 
-                        $esActual = ($index === 0); // El primero es el actual (menos votos)
-                        $totalVotosPunto = $punto['total_votos'] ?? 0;
-                        $porcentaje = $totalPresentes > 0 ? round(($totalVotosPunto / $totalPresentes) * 100) : 0;
+                    // Solo mostrar el primer punto (el que se está votando actualmente)
+                    $punto = $puntosHabilitados[0];
+                    $totalVotosPunto = $punto['total_votos'] ?? 0;
+                    $porcentaje = $totalPresentes > 0 ? round(($totalVotosPunto / $totalPresentes) * 100) : 0;
                     ?>
-                        <div class="punto-votacion <?= $esActual ? 'votacion-activa' : '' ?>" data-punto-id="<?= $punto['id'] ?>" style="<?= $esActual ? '' : 'opacity: 0.85; border-left-color: #95a5a6;' ?>">
+                        <div class="punto-votacion votacion-activa" data-punto-id="<?= $punto['id'] ?>" style="">
                             <div class="punto-numero">
                                 <?= $esActual ? '� VOTANDO AHORA' : '✅ Votado' ?> - Punto <?= $punto['orden_punto'] ?>
                                 <?php if ($totalPresentes > 0): ?>
@@ -909,7 +927,7 @@ try {
                                 <div class="resultados-grid">
                                     <div class="resultado-item resultado-positivo">
                                         <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['positivo'] ?></div>
-                                        <div class="resultado-label">✓ Afirmativos</div>
+                                        <div class="resultado-label">✓ A Favor</div>
                                         <?php if (!empty($resultadosVotacion[$punto['id']]['votantes']['positivo'])): ?>
                                             <div class="resultado-votantes">
                                                 <?php 
@@ -923,7 +941,7 @@ try {
                                     </div>
                                     <div class="resultado-item resultado-negativo">
                                         <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['negativo'] ?></div>
-                                        <div class="resultado-label">✕ Negativos</div>
+                                        <div class="resultado-label">✕ En Contra</div>
                                         <?php if (!empty($resultadosVotacion[$punto['id']]['votantes']['negativo'])): ?>
                                             <div class="resultado-votantes">
                                                 <?php 
@@ -937,7 +955,7 @@ try {
                                     </div>
                                     <div class="resultado-item resultado-abstencion">
                                         <div class="resultado-numero"><?= $resultadosVotacion[$punto['id']]['abstencion'] ?></div>
-                                        <div class="resultado-label">⊗ Abstenciones</div>
+                                        <div class="resultado-label">⊗ Abstención</div>
                                         <?php if (!empty($resultadosVotacion[$punto['id']]['votantes']['abstencion'])): ?>
                                             <div class="resultado-votantes">
                                                 <?php 
@@ -952,7 +970,6 @@ try {
                                 </div>
                             <?php endif; ?>
                         </div>
-                    <?php endforeach; ?>
                 <?php endif; ?>
             </div>
         </section>
@@ -964,7 +981,7 @@ try {
     </div>
 
     <!-- Footer -->
-    <footer class="footer-pantalla-grande">
+    <footer class="footer-pantalla-grande" style="display: none;">
         <div class="footer-content">
             <div class="ultima-actualizacion">
                 <i class="bi bi-arrow-clockwise"></i>
