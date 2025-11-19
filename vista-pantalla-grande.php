@@ -377,6 +377,9 @@ try {
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
         
         .punto-votacion::before {
@@ -457,6 +460,8 @@ try {
             align-items: flex-start;
             gap: calc(var(--gap) * 0.8);
             margin-top: calc(var(--pad) * 0.8);
+            flex: 1;
+            min-height: 0;
         }
         
         .resultado-item {
@@ -470,6 +475,9 @@ try {
             overflow: hidden;
             flex: 1;
             min-width: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
         
         .resultado-item::before {
@@ -539,12 +547,14 @@ try {
             margin-top: 0.5rem;
             padding-top: 0.5rem;
             border-top: 1px solid #e9ecef;
-            max-height: 120px;
+            max-height: none;
             overflow-y: auto;
             display: flex;
             flex-wrap: wrap;
             gap: 0.4rem;
             justify-content: center;
+            flex: 1;
+            align-content: flex-start;
         }
         
         .resultado-votantes::-webkit-scrollbar {
@@ -562,10 +572,10 @@ try {
         
         .badge-votante {
             display: inline-block;
-            padding: 0.4rem 0.8rem;
+            padding: 0.3rem 0.7rem;
             border-radius: 40px;
             font-weight: 600;
-            font-size: clamp(9px, 0.75vw, 13px);
+            font-size: clamp(11px, 0.9vw, 16px);
             white-space: nowrap;
             text-overflow: ellipsis;
             overflow: hidden;
@@ -907,7 +917,7 @@ try {
                     ?>
                         <div class="punto-votacion votacion-activa" data-punto-id="<?= $punto['id'] ?>" style="">
                             <div class="punto-numero">
-                                <?= $esActual ? '� VOTANDO AHORA' : '✅ Votado' ?> - Punto <?= $punto['orden_punto'] ?>
+                                <?= $esActual ? '� VOTANDO AHORA' : '✅ Votado' ?> 
                                 <?php if ($totalPresentes > 0): ?>
                                     <span style="float: right; font-size: clamp(12px, 1vw, 18px); color: #6c757d;">
                                         <?= $totalVotosPunto ?>/<?= $totalPresentes ?> votos (<?= $porcentaje ?>%)
