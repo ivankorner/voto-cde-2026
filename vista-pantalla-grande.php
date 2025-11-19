@@ -46,6 +46,7 @@ try {
     
     // Obtener miembros presentes
     $presentes = [];
+    $ausentes = [];
     if ($sesion['id'] > 0) {
         $stmt = $db->prepare("
             SELECT ps.*, u.first_name, u.last_name, u.username, r.name AS role_name
@@ -57,6 +58,18 @@ try {
         ");
         $stmt->execute([$sesion['id']]);
         $presentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Obtener ausentes
+        $stmt = $db->prepare("
+            SELECT ps.*, u.first_name, u.last_name, u.username, r.name AS role_name
+            FROM presentes_sesion ps
+            JOIN users u ON ps.user_id = u.id
+            JOIN roles r ON u.role_id = r.id
+            WHERE ps.sesion_id = ? AND ps.presente = 0 AND r.name = 'editor'
+            ORDER BY u.last_name, u.first_name
+        ");
+        $stmt->execute([$sesion['id']]);
+        $ausentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
     // Obtener resultados de votaciones y calcular total de votos por punto
@@ -843,32 +856,68 @@ try {
         
         <!-- Sección Presentes en el Header -->
         <div style="border-top: 1px solid var(--glass-border); background: rgba(40, 167, 69, 0.05);">
-            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.8rem; padding: 0 calc(var(--pad) * 2);">
-                <i class="bi bi-people" style="font-size: 1.5rem; color: #28a745;"></i>
-                <span style="font-size: clamp(14px, 1.2vw, 20px); font-weight: 700; color: var(--text-primary);">
-                    Presentes en la Sesión
-                </span>
-                <span style="background: #28a745; color: white; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: clamp(12px, 1vw, 18px); font-weight: 600;">
-                    <?= count($presentes) ?> Concejales
-                </span>
-            </div>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0 calc(var(--pad) * 2) calc(var(--pad) * 1.5) calc(var(--pad) * 2);">
-                <?php if (empty($presentes)): ?>
-                    <span style="color: #6c757d; font-size: clamp(12px, 0.9vw, 16px);">
-                        <i class="bi bi-info-circle"></i> No hay Concejales presentes en la sesión
-                    </span>
-                <?php else: ?>
-                    <?php foreach ($presentes as $presente): ?>
-                        <div style="background: white; border-radius: 50px; padding: 0.5rem 1rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); display: flex; align-items: center; gap: 0.6rem; border-left: 4px solid #28a745;">
-                            <div style="width: 28px; height: 28px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 700;">
-                                <?= strtoupper(substr($presente['first_name'], 0, 1) . substr($presente['last_name'], 0, 1)) ?>
-                            </div>
-                            <span style="font-size: clamp(11px, 0.85vw, 14px); font-weight: 600; color: var(--text-primary); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
-                                <?= htmlspecialchars($presente['first_name'] . ' ' . $presente['last_name']) ?>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; padding: 1rem calc(var(--pad) * 2);">
+                <!-- PRESENTES A LA IZQUIERDA -->
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem;">
+                        <i class="bi bi-check-circle-fill" style="font-size: 1.3rem; color: #28a745;"></i>
+                        <span style="font-size: clamp(14px, 1.2vw, 20px); font-weight: 700; color: #28a745;">
+                            Presentes
+                        </span>
+                        <span style="background: #28a745; color: white; padding: 0.25rem 0.6rem; border-radius: 20px; font-size: clamp(11px, 0.9vw, 16px); font-weight: 600;">
+                            <?= count($presentes) ?>
+                        </span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                        <?php if (empty($presentes)): ?>
+                            <span style="color: #6c757d; font-size: clamp(11px, 0.9vw, 15px);">
+                                <i class="bi bi-info-circle"></i> Sin presentes
                             </span>
-                        </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                        <?php else: ?>
+                            <?php foreach ($presentes as $presente): ?>
+                                <div style="background: linear-gradient(135deg, #d4f8d4 0%, #b8f0b8 100%); border-radius: 50px; padding: 0.4rem 0.9rem; box-shadow: 0 2px 6px rgba(40, 167, 69, 0.15); display: flex; align-items: center; gap: 0.5rem; border-left: 3px solid #28a745;">
+                                    <div style="width: 22px; height: 22px; background: #28a745; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 700;">
+                                        ✓
+                                    </div>
+                                    <span style="font-size: clamp(10px, 0.8vw, 13px); font-weight: 600; color: #1e7e34; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
+                                        <?= htmlspecialchars($presente['first_name'] . ' ' . $presente['last_name']) ?>
+                                    </span>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- AUSENTES A LA DERECHA -->
+                <div>
+                    <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem;">
+                        <i class="bi bi-x-circle-fill" style="font-size: 1.3rem; color: #dc3545;"></i>
+                        <span style="font-size: clamp(14px, 1.2vw, 20px); font-weight: 700; color: #dc3545;">
+                            Ausentes
+                        </span>
+                        <span style="background: #dc3545; color: white; padding: 0.25rem 0.6rem; border-radius: 20px; font-size: clamp(11px, 0.9vw, 16px); font-weight: 600;">
+                            <?= count($ausentes) ?>
+                        </span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                        <?php if (empty($ausentes)): ?>
+                            <span style="color: #6c757d; font-size: clamp(11px, 0.9vw, 15px);">
+                                <i class="bi bi-info-circle"></i> Todos presentes
+                            </span>
+                        <?php else: ?>
+                            <?php foreach ($ausentes as $ausente): ?>
+                                <div style="background: linear-gradient(135deg, #f8d7d7 0%, #f5c1c1 100%); border-radius: 50px; padding: 0.4rem 0.9rem; box-shadow: 0 2px 6px rgba(220, 53, 69, 0.15); display: flex; align-items: center; gap: 0.5rem; border-left: 3px solid #dc3545;">
+                                    <div style="width: 22px; height: 22px; background: #dc3545; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 700;">
+                                        ✕
+                                    </div>
+                                    <span style="font-size: clamp(10px, 0.8vw, 13px); font-weight: 600; color: #a71d2a; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
+                                        <?= htmlspecialchars($ausente['first_name'] . ' ' . $ausente['last_name']) ?>
+                                    </span>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
