@@ -417,7 +417,16 @@ ob_start();
                                     EXPTE. N° <?= htmlspecialchars($expediente['numero_expediente']) ?>
                                 </h6>
                                 <div id="resultado-<?= $expediente['id'] ?>">
-                                    <!-- Resultados se cargan dinámicamente -->
+                                    <?php if (!empty($expediente['resultados'])): ?>
+                                        <?php foreach ($expediente['resultados'] as $resultado): ?>
+                                        <span class="badge bg-<?= 
+                                            $resultado['tipo_voto'] === 'positivo' ? 'success' : 
+                                            ($resultado['tipo_voto'] === 'negativo' ? 'danger' : 'warning') 
+                                        ?> me-1">
+                                            <?= ucfirst($resultado['tipo_voto']) ?>: <?= $resultado['cantidad'] ?>
+                                        </span>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
