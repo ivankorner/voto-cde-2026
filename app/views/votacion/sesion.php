@@ -82,6 +82,10 @@ ob_start();
                         <i class="bi bi-person-check-fill"></i>
                         Ya Estás Presente
                     </button>
+                    <button id="btn-abandonar" class="btn btn-danger btn-sm w-100 mt-2" onclick="abandonarSesion()" data-bs-toggle="tooltip" title="Abandonar la sesión voluntariamente">
+                        <i class="bi bi-door-open"></i>
+                        Abandonar Sesión
+                    </button>
                     <?php else: ?>
                     <button id="btn-presencia" class="btn btn-success btn-sm w-100" onclick="marcarPresencia()" data-bs-toggle="tooltip" title="Registra tu asistencia para poder votar">
                         <i class="bi bi-person-check"></i>
@@ -285,7 +289,7 @@ ob_start();
 
 <!-- Panel de Votación -->
 <div class="row">
-    <div class="col-lg-8">
+    <div class="col-lg-12">
         <div class="card shadow">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0 section-title text-white"><i class="bi bi-list-check"></i> Ítems para Votación</h5>
@@ -500,21 +504,8 @@ ob_start();
         </div>
     </div>
     
-    <!-- Panel de Resultados en Tiempo Real -->
-    <div class="col-lg-4">
-        <div class="card shadow">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0 section-title text-white"><i class="bi bi-bar-chart"></i> Resultados en Tiempo Real</h5>
-            </div>
-            <div class="card-body" id="panel-resultados">
-                <div class="text-center py-4">
-                    <i class="bi bi-hourglass-split fa-3x text-gray-300 mb-3"></i>
-                    <h6 class="text-gray-600">Esperando votaciones...</h6>
-                    <p class="text-gray-500">Los resultados aparecerán aquí en tiempo real</p>
-                </div>
-            </div>
-        </div>
-    </div>
+    
+    
 </div>
 
 <!-- JavaScript para funcionalidad en tiempo real -->
@@ -666,6 +657,105 @@ function votar(tipoItem, itemId, tipoVoto, numeroExpediente = '', extracto = '')
         });
     });
 }
+
+// Abandonar sesión voluntariamente
+function abandonarSesion() {
+    SweetAlerts.confirmDanger(
+        '¿Abandonar sesión?', 
+        'Si abandona la sesión, no podrá continuar participando en las votaciones',
+        'Sí, abandonar'
+    ).then((result) => {
+        if (!result.isConfirmed) {
+            return;
+        }
+        
+        const btn = document.getElementById('btn-abandonar');
+        const originalText = btn.innerHTML;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-clock"></i> Procesando...';
+        
+        fetch(BASE_URL + 'votacion/abandonarSesion/' + SESION_ID, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: 'csrf_token=' + CSRF_TOKEN
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Respuesta no válida del servidor');
+            }
+            
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                SweetAlerts.success('Sesión abandonada', 'Ha abandonado la sesión exitosamente').then(() => {
+                    // Redirigir a la página de votaciones
+                    window.location.href = BASE_URL + 'votacion';
+                });
+            } else {
+                SweetAlerts.error('Error', data.message || 'Error desconocido');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            
+            let errorMessage = 'No se pudo conectar con el servidor';
+            if (error.message.includes('HTTP')) {
+                errorMessage = 'Error del servidor: ' + error.message;
+            } else if (error.message.includes('JSON')) {
+                errorMessage = 'Error de formato en la respuesta del servidor';
+            } else if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'Problema de conectividad. Intente nuevamente.';
+            }
+            
+            SweetAlerts.error('Error de conexión', errorMessage);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
+    });
+}
+
+// Bloquear navegación hacia atrás cuando el usuario está presente en la sesión
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar si el usuario está presente (mirando si el botón "Ya Estás Presente" existe)
+    const btnPresente = document.getElementById('btn-presencia');
+    const usuarioEstaPresente = btnPresente && btnPresente.disabled && btnPresente.classList.contains('btn-secondary');
+    
+    if (usuarioEstaPresente) {
+        // Bloquear navegación hacia atrás
+        history.pushState(null, null, location.href);
+        
+        window.onpopstate = function() {
+            // Volver a mantener el historial en la misma página
+            history.pushState(null, null, location.href);
+            
+            // Mostrar confirmación
+            SweetAlerts.confirm(
+                'No puedes abandonar la sesión así',
+                'Si deseas abandonar, usa el botón "Abandonar Sesión"',
+                'Entendido'
+            );
+        };
+        
+        // También bloquear cuando se cierra la pestaña o navegador
+        window.addEventListener('beforeunload', function(e) {
+            e.preventDefault();
+            e.returnValue = 'Si abandona ahora, se perderá su participación en la sesión. Use el botón "Abandonar Sesión" en la interfaz.';
+            return e.returnValue;
+        });
+    }
+});
 
 // Actualizar hemiciclo
 function actualizarHemiciclo(presentes) {

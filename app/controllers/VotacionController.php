@@ -256,6 +256,42 @@ class VotacionController extends Controller {
         }
     }
     
+    public function abandonarSesion($sesionId) {
+        try {
+            $this->requireLogin();
+            
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                $this->sendJSON(['success' => false, 'message' => 'Método no permitido']);
+                return;
+            }
+            
+            $votacionModel = $this->loadModel('Votacion');
+            
+            // Verificar que el usuario está presente en la sesión
+            if (!$votacionModel->usuarioEstaPresente($sesionId, $_SESSION['user_id'])) {
+                $this->sendJSON(['success' => false, 'message' => 'No estás presente en esta sesión']);
+                return;
+            }
+            
+            // Marcar salida del usuario
+            $success = $votacionModel->marcarSalida($sesionId, $_SESSION['user_id']);
+            
+            if ($success) {
+                $presentes = $votacionModel->getPresentesSesion($sesionId);
+                $this->sendJSON([
+                    'success' => true, 
+                    'message' => 'Has abandonado la sesión exitosamente',
+                    'total_presentes' => count($presentes)
+                ]);
+            } else {
+                $this->sendJSON(['success' => false, 'message' => 'Error al abandonar la sesión']);
+            }
+        } catch (Exception $e) {
+            error_log("Error en abandonarSesion(): " . $e->getMessage());
+            $this->sendJSON(['success' => false, 'message' => 'Error interno del servidor']);
+        }
+    }
+    
     // ============================================
     // VOTACIÓN
     // ============================================

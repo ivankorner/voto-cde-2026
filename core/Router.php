@@ -171,6 +171,14 @@ class Router {
                 }
                 break;
                 
+            case 'abandonarSesion':
+                if ($id && method_exists($controller, 'abandonarSesion')) {
+                    $controller->abandonarSesion($id);
+                } else {
+                    $this->callController('ErrorController', 'notFound');
+                }
+                break;
+                
             case 'resultados':
                 if ($id && $param2 && $param3 && method_exists($controller, 'resultados')) {
                     $controller->resultados($id, $param2, $param3);
